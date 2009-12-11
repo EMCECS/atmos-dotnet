@@ -1,0 +1,29 @@
+<project name="dotnet" default="zip">
+	<!-- This project is simply used to build the output zip files -->
+	<target name="zip">
+		<zip destfile="EsuDotNet.zip">
+			<zipfileset dir=".">
+				<exclude name="EsuApiTest/**"/>
+				<exclude name="EsuApiLib/bin/**"/>
+				<exclude name="EsuApiLib/obj/**"/>
+				<exclude name="EsuApiLib/*.user"/>
+				<exclude name="*.suo"/>				
+				<exclude name="**/.svn/**"/>
+			</zipfileset>
+			<zipfileset dir="." prefix="dist">
+				<include name="EsuApiLib/bin/**"/>
+				<exclude name="**/.svn/**"/>
+			</zipfileset>
+		</zip>
+		<zip destfile="EsuDotNetTest.zip">
+			<zipfileset dir=".">
+				<exclude name="EsuApiLib/**"/>
+				<exclude name="EsuApiTest/bin/**"/>
+				<exclude name="EsuApiTest/obj/**"/>
+				<exclude name="EsuApiTest/*.user"/>
+				<exclude name="*.suo"/>				
+				<exclude name="**/.svn/**"/>
+			</zipfileset>
+		</zip>
+	</target>
+</project>
