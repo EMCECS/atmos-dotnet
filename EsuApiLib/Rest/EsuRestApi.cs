@@ -1632,12 +1632,12 @@ namespace EsuApiLib.Rest {
             StringBuilder sb = new StringBuilder();
             sb.Append("GET\n");
             sb.Append(resource.ToLower() + "\n");
-            sb.Append(uidEnc + "\n");
+            sb.Append(uid + "\n");
 
             sb.Append("" + unixTime);
 
             string signature = Uri.EscapeDataString(sign(sb.ToString()));
-            resource += "?uid=" + uid + "&expires=" + unixTime +
+            resource += "?uid=" + uidEnc + "&expires=" + unixTime +
                 "&signature=" + signature;
 
             Uri u = buildUrl(resource);
