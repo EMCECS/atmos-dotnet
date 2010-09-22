@@ -73,5 +73,14 @@ namespace EsuApiLib {
             this.val = value;
             this.listable = listable;
         }
+
+        /// <summary>
+        /// Returns the metadata in the form of name=value
+        /// </summary>
+        /// <returns>metadata as string</returns>
+        public override string ToString()
+        {
+            return name + "=" + val;
+        }
     }
 }

@@ -32,6 +32,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ACryptoHashNet, Version=1.0.3563.20920, Culture=neutral, processorArchitecture=MSIL" />
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
@@ -47,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Acl.cs" />
+    <Compile Include="Checksum.cs" />
     <Compile Include="DirectoryEntry.cs" />
     <Compile Include="DownloadHelper.cs" />
     <Compile Include="EsuApi.cs" />
@@ -68,12 +70,14 @@
     <Compile Include="ProgressEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rest\EsuRestApi.cs" />
+    <Compile Include="ServiceInformation.cs" />
     <Compile Include="UploadHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="docgen.shfb" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="ACryptoHashNet.dll" />
     <Content Include="readme.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

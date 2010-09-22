@@ -91,6 +91,18 @@ namespace EsuApiLib {
         public bool Failed {
             get { return failed; }
         }
+
+        private bool computeChecksums=false;
+        private Checksum checksum;
+
+        /// <summary>
+        /// If true, checksums will be computed during create/update operations.
+        /// </summary>
+        public bool ComputeChecksums
+        {
+            get { return computeChecksums; }
+            set { computeChecksums = value; }
+        }
 	
 
         #region Events
@@ -199,12 +211,21 @@ namespace EsuApiLib {
             this.closeStream = closeStream;
             this.stream = stream;
 
+            if (computeChecksums)
+            {
+                checksum = new Checksum(Checksum.Algorithm.SHA0);
+            }
+            else
+            {
+                checksum = null;
+            }
+
             ObjectId id = null;
 
             // First call should be to create object
             try {
                 bool eof = ReadChunk();
-                id = this.esu.CreateObjectFromSegment( acl, metadata, buffer, null );
+                id = this.esu.CreateObjectFromSegment( acl, metadata, buffer, null, checksum );
                 if ( !eof ) {
                     this.OnProgress( buffer.Count );
                 } else {
@@ -273,11 +294,20 @@ namespace EsuApiLib {
             this.closeStream = closeStream;
             this.stream = stream;
 
+            if (computeChecksums)
+            {
+                checksum = new Checksum(Checksum.Algorithm.SHA0);
+            }
+            else
+            {
+                checksum = null;
+            }
+
             // First call uses a null extent to truncate the file.
             try {
                 bool eof = ReadChunk();
                 this.esu.UpdateObjectFromSegment( id, acl, metadata, null, buffer,
-                        null );
+                        null, checksum );
 
                 if ( !eof ) {
                     this.OnProgress( buffer.Count );
@@ -316,7 +346,7 @@ namespace EsuApiLib {
                 }
 
                 Extent extent = new Extent( currentBytes, buffer.Count );
-                esu.UpdateObjectFromSegment( id, null, null, extent, buffer, null );
+                esu.UpdateObjectFromSegment( id, null, null, extent, buffer, null, checksum );
                 this.OnProgress( buffer.Count );
             }
 
