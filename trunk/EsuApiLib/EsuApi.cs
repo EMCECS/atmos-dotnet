@@ -33,7 +33,12 @@ namespace EsuApiLib {
     /// services.
     /// </summary>
     public interface EsuApi {
-   
+        /// <summary>
+        /// If true, checksums will be verified during read operations.  The default
+        /// is false.
+        /// </summary>
+        bool VerifyChecksums { set; get; }
+
         /// <summary>
         /// Creates a new object in the cloud.
         /// </summary>
@@ -42,8 +47,20 @@ namespace EsuApiLib {
         /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
         /// <returns>Identifier of the newly created object.</returns>
-        ObjectId CreateObject( Acl acl, MetadataList metadata,
-                byte[] data, string mimeType );
+        ObjectId CreateObject(Acl acl, MetadataList metadata,
+                byte[] data, string mimeType);
+
+        /// <summary>
+        /// Creates a new object in the cloud.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        ObjectId CreateObject(Acl acl, MetadataList metadata,
+                byte[] data, string mimeType, Checksum checksum);
 
         /// <summary>
         /// Creates a new object in the cloud on the
@@ -60,6 +77,21 @@ namespace EsuApiLib {
                 byte[] data, String mimeType);
 
         /// <summary>
+        /// Creates a new object in the cloud on the
+        /// given path.
+        /// </summary>
+        /// <param name="path">the path to create the object on.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectOnPath(ObjectPath path, Acl acl,
+                MetadataList metadata,
+                byte[] data, String mimeType, Checksum checksum);
+
+        /// <summary>
         /// Creates a new object in the cloud using an ArraySegment.
         /// </summary>
         /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
@@ -67,8 +99,20 @@ namespace EsuApiLib {
         /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
         /// <returns>Identifier of the newly created object.</returns>
-        ObjectId CreateObjectFromSegment( Acl acl, MetadataList metadata,
-                ArraySegment<byte> data, string mimeType );
+        ObjectId CreateObjectFromSegment(Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, string mimeType);
+
+        /// <summary>
+        /// Creates a new object in the cloud using an ArraySegment.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        ObjectId CreateObjectFromSegment(Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, string mimeType, Checksum checksum);
 
         /// <summary>
         /// Creates a new object in the cloud using a BufferSegment on the
@@ -84,6 +128,21 @@ namespace EsuApiLib {
                 Acl acl, MetadataList metadata,
                 ArraySegment<byte> data, String mimeType);
 
+        /// <summary>
+        /// Creates a new object in the cloud using a BufferSegment on the
+        /// given path.
+        /// </summary>
+        /// <param name="path">the path to create the object on.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectFromSegmentOnPath(ObjectPath path,
+                Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, String mimeType, Checksum checksum);
+
 
         /// <summary>
         /// Updates an object in the cloud.
@@ -94,8 +153,21 @@ namespace EsuApiLib {
         /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
         /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
-        void UpdateObject( Identifier id, Acl acl, MetadataList metadata,
-                Extent extent, byte[] data, string mimeType );
+        void UpdateObject(Identifier id, Acl acl, MetadataList metadata,
+                Extent extent, byte[] data, string mimeType);
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        void UpdateObject(Identifier id, Acl acl, MetadataList metadata,
+                Extent extent, byte[] data, string mimeType, Checksum checksum);
 
 
         /// <summary>
@@ -107,8 +179,21 @@ namespace EsuApiLib {
         /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
         /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
-        void UpdateObjectFromSegment( Identifier id, Acl acl, MetadataList metadata,
-                Extent extent, ArraySegment<byte> data, string mimeType );
+        void UpdateObjectFromSegment(Identifier id, Acl acl, MetadataList metadata,
+                Extent extent, ArraySegment<byte> data, string mimeType);
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        void UpdateObjectFromSegment(Identifier id, Acl acl, MetadataList metadata,
+                Extent extent, ArraySegment<byte> data, string mimeType, Checksum checksum);
 
         /// <summary>
         /// Fetches the user metadata for the object.
@@ -290,5 +375,39 @@ namespace EsuApiLib {
         /// </summary>
         /// <returns>The port number</returns>
         int GetPort();
+
+        /// <summary>
+        /// Deletes a version from an object.  You cannot specify the base version
+        /// of an object.
+        /// </summary>
+        /// <param name="vId">The ObjectID of the version to delete.</param>
+        void DeleteVersion(ObjectId vId);
+
+        /// <summary>
+        /// Restores a version of an object to the base version (i.e. "promote" an 
+        /// old version to the current version).
+        /// </summary>
+        /// <param name="id">Base object ID (target of the restore)</param>
+        /// <param name="vId">Version object ID to restore</param>
+        void RestoreVersion(ObjectId id, ObjectId vId);
+
+        /// <summary>
+        /// Renames a file or directory within the namespace.
+        /// </summary>
+        /// <param name="source">The file or directory to rename</param>
+        /// <param name="destination">The new path for the file or directory</param>
+        /// <param name="force">If true, the desination file or 
+        /// directory will be overwritten.  Directories must be empty to be 
+        /// overwritten.  Also note that overwrite operations on files are
+        /// not synchronous; a delay may be required before the object is
+        /// available at its destination.</param>
+        void Rename(ObjectPath source, ObjectPath destination, bool force);
+
+        /// <summary>
+        /// Gets information about the connected service.  Currently, this is
+        /// only the version of Atmos.
+        /// </summary>
+        /// <returns></returns>
+        ServiceInformation GetServiceInformation();
     }
 }

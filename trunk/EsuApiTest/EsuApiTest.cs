@@ -134,6 +134,69 @@ namespace EsuApiLib {
 
         }
 
+        /// <summary>
+        /// Test creating an object with metadata including a nonbreaking space
+        /// </summary>
+        [Test]
+        public void testCreateObjectWithNBSP()
+        {
+            MetadataList mlist = new MetadataList();
+            Metadata nbspValue = new Metadata("nbspvalue", "Nobreak\u00A0Value", false);
+            Metadata nbspName = new Metadata("Nobreak\u00A0Name", "regular text here", false);
+            Console.WriteLine("NBSP Value: " + nbspValue);
+            Console.WriteLine("NBSP Name: " + nbspName);
+
+            mlist.AddMetadata(nbspValue);
+            mlist.AddMetadata(nbspName);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read and validate the metadata
+            MetadataList meta = this.esu.GetUserMetadata(id, null);
+            Console.WriteLine("Read Back:");
+            Console.WriteLine("NBSP Value: " + meta.GetMetadata("nbspvalue"));
+            Console.WriteLine("NBSP Name: " + meta.GetMetadata("Nobreak\u00A0Name"));
+            Assert.AreEqual("Nobreak\u00A0Value", meta.GetMetadata("nbspvalue").Value, "value of 'nobreakvalue' wrong");
+
+        }
+
+
+        /// <summary>
+        /// Test creating an object with metadata but no content.
+        /// </summary>
+        [Test]
+        public void testCreateObjectWithMetadataNormalizeSpaces()
+        {
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar  bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2    foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2       bar2", false);
+            Metadata empty = new Metadata("empty", "", false);
+            Metadata withEqual = new Metadata("withEqual", "x=y=z", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            mlist.AddMetadata(empty);
+            mlist.AddMetadata(withEqual);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read and validate the metadata
+            MetadataList meta = this.esu.GetUserMetadata(id, null);
+            Assert.AreEqual("foo", meta.GetMetadata("listable").Value, "value of 'listable' wrong");
+            Assert.AreEqual("foo2    foo2", meta.GetMetadata("listable2").Value, "value of 'listable2' wrong");
+            Assert.AreEqual("bar  bar", meta.GetMetadata("unlistable").Value, "value of 'unlistable' wrong");
+            Assert.AreEqual("bar2       bar2", meta.GetMetadata("unlistable2").Value, "value of 'unlistable2' wrong");
+            Assert.AreEqual("", meta.GetMetadata("empty").Value, "value of 'empty' wrong");
+            Assert.AreEqual("x=y=z", meta.GetMetadata("withEqual").Value, "value of 'withEqual' wrong");
+
+        }
+
+
 
         /// <summary>
         /// Test reading an object's content
@@ -243,71 +306,74 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating object versions
         /// </summary>
-        //[Test]
-        //public void testVersionObject() {
-        //    // Create an object
-        //    MetadataList mlist = new MetadataList();
-        //    Metadata listable = new Metadata( "listable", "foo", true );
-        //    Metadata unlistable = new Metadata( "unlistable", "bar", false );
-        //    Metadata listable2 = new Metadata( "listable2", "foo2 foo2", true );
-        //    Metadata unlistable2 = new Metadata( "unlistable2", "bar2 bar2", false );
-        //    mlist.AddMetadata( listable );
-        //    mlist.AddMetadata( unlistable );
-        //    mlist.AddMetadata( listable2 );
-        //    mlist.AddMetadata( unlistable2 );
-        //    ObjectId id = this.esu.CreateObject( null, mlist, null, null );
-        //    Assert.IsNotNull( id,"null ID returned" );
-        //    cleanup.Add( id );
+        [Test]
+        public void testVersionObject()
+        {
+            // Create an object
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
 
-        //    // Version the object
-        //    ObjectId vid = this.esu.VersionObject( id );
-        //    cleanup.Add( vid );
-        //    Assert.IsNotNull( vid, "null version ID returned");
-            
-        //    Assert.IsFalse( id.Equals(vid), "Version ID shoudn't be same as original ID" );
+            // Version the object
+            ObjectId vid = this.esu.VersionObject(id);
+            cleanup.Add(vid);
+            Assert.IsNotNull(vid, "null version ID returned");
 
-        //    // Fetch the version and read its data
-        //    MetadataList meta = this.esu.GetUserMetadata( vid, null );
-        //    Assert.AreEqual( "foo", meta.GetMetadata( "listable" ).Value, "value of 'listable' wrong" );
-        //    Assert.AreEqual( "foo2 foo2", meta.GetMetadata( "listable2" ).Value, "value of 'listable2' wrong" );
-        //    Assert.AreEqual( "bar", meta.GetMetadata( "unlistable" ).Value, "value of 'unlistable' wrong" );
-        //    Assert.AreEqual( "bar2 bar2", meta.GetMetadata( "unlistable2" ).Value, "value of 'unlistable2' wrong" );
+            Assert.IsFalse(id.Equals(vid), "Version ID shoudn't be same as original ID");
 
-        //}
+            // Fetch the version and read its data
+            MetadataList meta = this.esu.GetUserMetadata(vid, null);
+            Assert.AreEqual("foo", meta.GetMetadata("listable").Value, "value of 'listable' wrong");
+            Assert.AreEqual("foo2 foo2", meta.GetMetadata("listable2").Value, "value of 'listable2' wrong");
+            Assert.AreEqual("bar", meta.GetMetadata("unlistable").Value, "value of 'unlistable' wrong");
+            Assert.AreEqual("bar2 bar2", meta.GetMetadata("unlistable2").Value, "value of 'unlistable2' wrong");
+
+        }
 
         /// <summary>
         /// Test listing the versions of an object
         /// </summary>
-        //public void testListVersions() {
-        //    // Create an object
-        //    MetadataList mlist = new MetadataList();
-        //    Metadata listable = new Metadata( "listable", "foo", true );
-        //    Metadata unlistable = new Metadata( "unlistable", "bar", false );
-        //    Metadata listable2 = new Metadata( "listable2", "foo2 foo2", true );
-        //    Metadata unlistable2 = new Metadata( "unlistable2", "bar2 bar2", false );
-        //    mlist.AddMetadata( listable );
-        //    mlist.AddMetadata( unlistable );
-        //    mlist.AddMetadata( listable2 );
-        //    mlist.AddMetadata( unlistable2 );
-        //    ObjectId id = this.esu.CreateObject( null, mlist, null, null );
-        //    Assert.IsNotNull( id,"null ID returned" );
-        //    cleanup.Add( id );
+        [Test]
+        public void testListVersions()
+        {
+            // Create an object
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
 
-        //    // Version the object
-        //    ObjectId vid1 = this.esu.VersionObject( id );
-        //    cleanup.Add( vid1 );
-        //    Assert.IsNotNull( vid1, "null version ID returned" );
-        //    ObjectId vid2 = this.esu.VersionObject( id );
-        //    cleanup.Add( vid2 );
-        //    Assert.IsNotNull( vid2, "null version ID returned" );
+            // Version the object
+            ObjectId vid1 = this.esu.VersionObject(id);
+            cleanup.Add(vid1);
+            Assert.IsNotNull(vid1, "null version ID returned");
+            ObjectId vid2 = this.esu.VersionObject(id);
+            cleanup.Add(vid2);
+            Assert.IsNotNull(vid2, "null version ID returned");
 
-        //    // List the versions and ensure their IDs are correct
-        //    List<ObjectId> versions = this.esu.ListVersions( id );
-        //    Assert.AreEqual( 3, versions.Count, "Wrong number of versions returned" );
-        //    Assert.IsTrue( versions.Contains( vid1 ), "version 1 not found in version list" );
-        //    Assert.IsTrue( versions.Contains( vid2 ), "version 2 not found in version list" );
-        //    Assert.IsTrue( versions.Contains( id ), "base object not found in version list" );
-        //}
+            // List the versions and ensure their IDs are correct
+            List<ObjectId> versions = this.esu.ListVersions(id);
+            Assert.AreEqual(3, versions.Count, "Wrong number of versions returned");
+            Assert.IsTrue(versions.Contains(vid1), "version 1 not found in version list");
+            Assert.IsTrue(versions.Contains(vid2), "version 2 not found in version list");
+            Assert.IsTrue(versions.Contains(id), "base object not found in version list");
+        }
 
         /// <summary>
         /// Test listing the system metadata on an object
@@ -339,6 +405,76 @@ namespace EsuApiLib {
             Assert.IsNull( meta.GetMetadata( "gid" ), "value of 'gid' should not have been returned" );
             Assert.IsNull( meta.GetMetadata( "listable" ), "value of 'listable' should not have been returned" );
         }
+
+        /// <summary>
+        /// Test listing the versions of an object
+        /// </summary>
+        public void testDeleteVersion()
+        {
+            // Create an object
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Version the object
+            ObjectId vid1 = this.esu.VersionObject(id);
+            cleanup.Add(vid1);
+            Assert.IsNotNull(vid1, "null version ID returned");
+            ObjectId vid2 = this.esu.VersionObject(id);
+            cleanup.Add(vid2);
+            Assert.IsNotNull(vid2, "null version ID returned");
+
+            // List the versions and ensure their IDs are correct
+            List<ObjectId> versions = this.esu.ListVersions(id);
+            Assert.AreEqual(3, versions.Count, "Wrong number of versions returned");
+            Assert.IsTrue(versions.Contains(vid1), "version 1 not found in version list");
+            Assert.IsTrue(versions.Contains(vid2), "version 2 not found in version list");
+            Assert.IsTrue(versions.Contains(id), "base object not found in version list");
+
+            // Delete a version
+            this.esu.DeleteVersion(vid2);
+            versions = this.esu.ListVersions(id);
+            Assert.AreEqual(2, versions.Count, "Wrong number of versions returned");
+            Assert.IsTrue(versions.Contains(vid1), "version 1 not found in version list");
+            Assert.IsFalse(versions.Contains(vid2), "version 2 found in version list (should be deleted)");
+            Assert.IsTrue(versions.Contains(id), "base object not found in version list");
+        }
+
+
+        /// <summary>
+        /// Test replacing an object with an older version.
+        /// </summary>
+        [Test]
+        public void testRestoreVersion()
+        {
+            ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes("Base Version Content"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Version the object
+            ObjectId vId = this.esu.VersionObject(id);
+
+            // Update the object content
+            this.esu.UpdateObject(id, null, null, null, Encoding.UTF8.GetBytes("Child Version Content -- You should never see me"), "text/plain");
+
+            // Restore the original version
+            this.esu.RestoreVersion(id, vId);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("Base Version Content", content, "object content wrong");
+        }
+
+
 
         /// <summary>
         /// Test listing objects by a tag
@@ -904,7 +1040,7 @@ namespace EsuApiLib {
         [Test]
         public void testUploadDownload() {
             // Create a byte array to test
-            int size=20*1024*1024;
+            int size=10*1024*1024;
             byte[] testData = new byte[size];
             for( int i=0; i<size; i++ ) {
                 testData[i] = (byte)(i%0x93);
@@ -937,6 +1073,110 @@ namespace EsuApiLib {
         
         }
 
+        [Test]
+        public void testChecksums() {
+            try
+            {
+                this.esu.VerifyChecksums = true;
+                // Create a byte array to test
+                int size = 10 * 1024 * 1024;
+                byte[] testData = new byte[size];
+                for (int i = 0; i < size; i++)
+                {
+                    testData[i] = (byte)(i % 0x93);
+                }
+                UploadHelper uh = new UploadHelper(this.esu, null);
+                uh.ComputeChecksums = true;
+                MemoryStream ms = new MemoryStream();
+                ms.Write(testData, 0, testData.Length);
+                ms.Seek(0, SeekOrigin.Begin);
+
+                ObjectId id = uh.CreateObject(ms, null, null, true);
+                cleanup.Add(id);
+
+                MemoryStream baos = new MemoryStream();
+
+                DownloadHelper dl = new DownloadHelper(this.esu, new byte[4 * 1024 * 1024]);
+                dl.ReadObject(id, baos, true);
+
+                Assert.IsFalse(dl.Failed, "Download should have been OK");
+                Assert.IsNull(dl.Error, "Error should have been null");
+
+                byte[] outData = baos.ToArray();
+
+                // Check the files
+                Assert.AreEqual(testData.Length, outData.Length, "File lengths differ");
+
+                for (int i = 0; i < testData.Length; i++)
+                {
+                    Assert.AreEqual(testData[i], outData[i], "Arrays differ at offset " + i);
+                }
+            }
+            finally
+            {
+                this.esu.VerifyChecksums = false;
+            }
+        }
+
+        /// <summary>
+        /// Test renaming files
+        /// </summary>
+        [Test]
+        public void testRename()
+        {
+            ObjectPath op1 = new ObjectPath("/" + rand8char() + ".tmp");
+            ObjectPath op2 = new ObjectPath("/" + rand8char() + ".tmp");
+            ObjectPath op3 = new ObjectPath("/" + rand8char() + ".tmp");
+            ObjectPath op4 = new ObjectPath("/" + rand8char() + ".tmp");
+            ObjectId id = this.esu.CreateObjectOnPath(op1, null, null, 
+                Encoding.UTF8.GetBytes("Four score and seven years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Rename the object
+            this.esu.Rename(op1, op2, false);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(op2, null, null));
+            Assert.AreEqual("Four score and seven years ago", content, "object content wrong");
+
+            // Attempt overwrite
+            id = this.esu.CreateObjectOnPath(op3, null, null,
+                Encoding.UTF8.GetBytes("Four score and seven years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+            id = this.esu.CreateObjectOnPath(op4, null, null,
+                Encoding.UTF8.GetBytes("You shouldn't see me"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+            this.esu.Rename(op3, op4, true);
+
+            // Wait for rename to complete
+            System.Threading.Thread.Sleep(5000);
+
+            // Read back the content
+            content = Encoding.UTF8.GetString(this.esu.ReadObject(op4, null, null));
+            Assert.AreEqual("Four score and seven years ago", content, "object content wrong (3)");
+        }
+
+        [Test]
+        public void testGetServiceInformation()
+        {
+            ServiceInformation si = this.esu.GetServiceInformation();
+
+            Assert.NotNull(si.AtmosVersion);
+            Debug.WriteLine("Atmos " + si.AtmosVersion);
+        }
+
+        [Test]
+	    public void testCreateChecksum() {
+		    Checksum ck = new Checksum( EsuApiLib.Checksum.Algorithm.SHA0 );
+            ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes("hello"), "text/plain", ck );
+		    Debug.WriteLine( "Checksum: " + ck );
+		    cleanup.Add( id );
+	    }
+
+        
 
         private string rand8char() {
             StringBuilder sb = new StringBuilder();

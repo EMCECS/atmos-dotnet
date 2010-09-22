@@ -44,6 +44,9 @@ namespace EsuApiLib.Rest {
     /// </summary>
     public class EsuRestApi : EsuApi {
         private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44})" );
+        private static TraceSource log = new TraceSource("EsuRestApi");
+        private static Encoding headerEncoder = Encoding.GetEncoding("iso-8859-1");
+
 
         private byte[] secret;
         private string context = "/rest";
@@ -95,7 +98,17 @@ namespace EsuApiLib.Rest {
             get { return protocol; }
             set { protocol = value; }
         }
-	
+
+        private bool verifyChecksums=false;
+
+        /// <summary>
+        /// If true, checksums will be verified during read operations.  The default
+        /// is false.
+        /// </summary>
+        public bool VerifyChecksums {
+            get { return verifyChecksums; }
+            set { verifyChecksums = value; }
+        }
 
         /// <summary>
         /// Creates a new EsuRestApi object
@@ -138,10 +151,27 @@ namespace EsuApiLib.Rest {
         /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
         /// <returns>Identifier of the newly created object.</returns>
-        public ObjectId CreateObject( Acl acl, MetadataList metadata, byte[] data, string mimeType ) {
-            return CreateObjectFromSegment( acl, metadata,
-                data == null ? new ArraySegment<byte>( new byte[0] ) : new ArraySegment<byte>( data ),
-                mimeType );
+        public ObjectId CreateObject(Acl acl, MetadataList metadata, byte[] data, string mimeType)
+        {
+            return CreateObjectFromSegment(acl, metadata,
+                data == null ? new ArraySegment<byte>(new byte[0]) : new ArraySegment<byte>(data),
+                mimeType, null);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        public ObjectId CreateObject(Acl acl, MetadataList metadata, byte[] data, string mimeType, Checksum checksum)
+        {
+            return CreateObjectFromSegment(acl, metadata,
+                data == null ? new ArraySegment<byte>(new byte[0]) : new ArraySegment<byte>(data),
+                mimeType, checksum);
         }
 
         /// <summary>
@@ -152,7 +182,21 @@ namespace EsuApiLib.Rest {
         /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
         /// <returns>Identifier of the newly created object.</returns>
-        public ObjectId CreateObjectFromSegment( Acl acl, MetadataList metadata, ArraySegment<byte> data, string mimeType ) {
+        public ObjectId CreateObjectFromSegment(Acl acl, MetadataList metadata, ArraySegment<byte> data, string mimeType)
+        {
+            return CreateObjectFromSegment(acl, metadata, data, mimeType, null);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud using an ArraySegment.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        public ObjectId CreateObjectFromSegment( Acl acl, MetadataList metadata, ArraySegment<byte> data, string mimeType, Checksum checksum ) {
             HttpWebResponse resp = null;
             try {
                 string resource = context + "/objects";
@@ -182,8 +226,16 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    checksum.Update(data);
+                    //Checksum ckcopy = checksum.Clone();
+                    headers.Add("x-emc-wschecksum", checksum.ToString() );
+                }
 
                 // Sign request
                 signRequest( con, "POST", resource, headers );
@@ -216,7 +268,7 @@ namespace EsuApiLib.Rest {
                 MatchCollection m = OBJECTID_EXTRACTOR.Matches( location );
                 if( m.Count > 0 ) {
                     string id = m[0].Groups[1].Value;
-                    Debug.WriteLine( "Id: " + id );
+                    log.TraceEvent(TraceEventType.Verbose, 0,  "Id: " + id );
                     return new ObjectId( id );
                 } else {
                     throw new EsuException( "Could not find ObjectId in " + location );
@@ -254,10 +306,31 @@ namespace EsuApiLib.Rest {
         /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
         public ObjectId CreateObjectOnPath(ObjectPath path, Acl acl,
                 MetadataList metadata,
-                byte[] data, String mimeType) {
+                byte[] data, String mimeType)
+        {
             return CreateObjectFromSegmentOnPath(path, acl, metadata,
                 data == null ? new ArraySegment<byte>(new byte[0]) : new ArraySegment<byte>(data),
-                mimeType);
+                mimeType, null);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud on the
+        /// given path.
+        /// </summary>
+        /// <param name="path">the path to create the object on.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectOnPath(ObjectPath path, Acl acl,
+                MetadataList metadata,
+                byte[] data, String mimeType, Checksum checksum)
+        {
+            return CreateObjectFromSegmentOnPath(path, acl, metadata,
+                data == null ? new ArraySegment<byte>(new byte[0]) : new ArraySegment<byte>(data),
+                mimeType, checksum);
         }
 
         /// <summary>
@@ -272,7 +345,25 @@ namespace EsuApiLib.Rest {
         /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
         public ObjectId CreateObjectFromSegmentOnPath(ObjectPath path,
                 Acl acl, MetadataList metadata,
-                ArraySegment<byte> data, String mimeType) {
+                ArraySegment<byte> data, String mimeType)
+        {
+            return CreateObjectFromSegmentOnPath(path, acl, metadata, data, mimeType, null);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud using a BufferSegment on the
+        /// given path.
+        /// </summary>
+        /// <param name="path">the path to create the object on.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectFromSegmentOnPath(ObjectPath path,
+                Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, String mimeType, Checksum checksum) {
             HttpWebResponse resp = null;
             try {
                 string resource = getResourcePath( context, path );
@@ -302,8 +393,15 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                Debug.WriteLine("Date: " + dateHeader);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
                 headers.Add("Date", dateHeader);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    checksum.Update(data);
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
 
                 // Sign request
                 signRequest(con, "POST", resource, headers);
@@ -336,7 +434,7 @@ namespace EsuApiLib.Rest {
                 MatchCollection m = OBJECTID_EXTRACTOR.Matches(location);
                 if (m.Count > 0) {
                     string id = m[0].Groups[1].Value;
-                    Debug.WriteLine("Id: " + id);
+                    log.TraceEvent(TraceEventType.Verbose, 0, "Id: " + id);
                     return new ObjectId(id);
                 } else {
                     throw new EsuException("Could not find ObjectId in " + location);
@@ -375,9 +473,10 @@ namespace EsuApiLib.Rest {
         /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
         /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
-        public void UpdateObject( Identifier id, Acl acl, MetadataList metadata, Extent extent, byte[] data, string mimeType ) {
-            ArraySegment<byte> seg = new ArraySegment<byte>( data == null ? new byte[0] : data );
-            UpdateObjectFromSegment( id, acl, metadata, extent, seg, mimeType );
+        public void UpdateObject(Identifier id, Acl acl, MetadataList metadata, Extent extent, byte[] data, string mimeType)
+        {
+            ArraySegment<byte> seg = new ArraySegment<byte>(data == null ? new byte[0] : data);
+            UpdateObjectFromSegment(id, acl, metadata, extent, seg, mimeType, null);
         }
 
         /// <summary>
@@ -389,7 +488,39 @@ namespace EsuApiLib.Rest {
         /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
         /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
         /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
-        public void UpdateObjectFromSegment( Identifier id, Acl acl, MetadataList metadata, Extent extent, ArraySegment<byte> data, string mimeType ) {
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        public void UpdateObject(Identifier id, Acl acl, MetadataList metadata, Extent extent, byte[] data, string mimeType, Checksum checksum)
+        {
+            ArraySegment<byte> seg = new ArraySegment<byte>(data == null ? new byte[0] : data);
+            UpdateObjectFromSegment(id, acl, metadata, extent, seg, mimeType, checksum);
+        }
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        public void UpdateObjectFromSegment(Identifier id, Acl acl, MetadataList metadata, Extent extent, ArraySegment<byte> data, string mimeType)
+        {
+            UpdateObjectFromSegment(id, acl, metadata, extent, data, mimeType, null);
+        }
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The new contents of the object.  May be appended to later. Optional, set to null for no content changes.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        public void UpdateObjectFromSegment(Identifier id, Acl acl, MetadataList metadata, Extent extent, ArraySegment<byte> data, string mimeType, Checksum checksum)
+        {
             HttpWebResponse resp = null;
             try {
                 string resource = getResourcePath(context, id);
@@ -425,8 +556,15 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    checksum.Update(data);
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
 
                 // Sign request
                 signRequest( con, "PUT", resource, headers );
@@ -496,7 +634,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -565,7 +703,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -636,7 +774,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -694,7 +832,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -748,7 +886,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -816,7 +954,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -875,7 +1013,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -936,7 +1074,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -991,7 +1129,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1008,7 +1146,7 @@ namespace EsuApiLib.Rest {
                 byte[] response = readResponse( resp, null );
 
                 string responseStr = Encoding.UTF8.GetString( response );
-                Debug.WriteLine( "Response: " + responseStr );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
 
                 return parseObjectList( responseStr );
 
@@ -1054,7 +1192,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1075,7 +1213,7 @@ namespace EsuApiLib.Rest {
                 MatchCollection m = OBJECTID_EXTRACTOR.Matches( location );
                 if( m.Count > 0 ) {
                     string vid = m[0].Groups[1].Value;
-                    Debug.WriteLine( "Id: " + vid );
+                    log.TraceEvent(TraceEventType.Verbose, 0,  "Id: " + vid );
                     return new ObjectId( vid );
                 } else {
                     throw new EsuException( "Could not find ObjectId in " + location );
@@ -1102,6 +1240,133 @@ namespace EsuApiLib.Rest {
             }
             return null;
         }
+
+        /// <summary>
+        /// Deletes a version from an object.  You cannot specify the base version
+        /// of an object.
+        /// </summary>
+        /// <param name="vId">The ObjectID of the version to delete.</param>
+        public void DeleteVersion(ObjectId vId) {
+            HttpWebResponse resp = null;
+            try {
+                string resource = getResourcePath(context, vId) + "?versions";
+                Uri u = buildUrl( resource );
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add( "x-emc-uid", uid );
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
+                headers.Add( "Date", dateHeader );
+
+                // Sign request
+                signRequest( con, "DELETE", resource, headers );
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if( statInt > 299 ) {
+                    handleError( resp );
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Restores a version of an object to the base version (i.e. "promote" an 
+        /// old version to the current version).
+        /// </summary>
+        /// <param name="id">Base object ID (target of the restore)</param>
+        /// <param name="vId">Version object ID to restore</param>
+        public void RestoreVersion(ObjectId id, ObjectId vId) {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, id) + "?versions";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                // Set the version to promote
+                headers.Add("x-emc-version-oid", vId.ToString());
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "PUT", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+        }
+
 
         /// <summary>
         /// Lists all objects with the given tag.
@@ -1140,7 +1405,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1157,7 +1422,7 @@ namespace EsuApiLib.Rest {
                 byte[] response = readResponse( resp, null );
 
                 string responseStr = Encoding.UTF8.GetString( response );
-                Debug.WriteLine( "Response: " + responseStr );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
 
                 return parseObjectList( responseStr );
 
@@ -1230,7 +1495,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                Debug.WriteLine("Date: " + dateHeader);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
                 headers.Add("Date", dateHeader);
 
                 // Sign request
@@ -1248,7 +1513,7 @@ namespace EsuApiLib.Rest {
                 byte[] response = readResponse(resp, null);
 
                 string responseStr = Encoding.UTF8.GetString(response);
-                Debug.WriteLine("Response: " + responseStr);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
 
                 return parseObjectListWithMetadata(responseStr);
 
@@ -1315,7 +1580,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1377,7 +1642,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1448,7 +1713,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                Debug.WriteLine( "Date: " + dateHeader );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
                 headers.Add( "Date", dateHeader );
 
                 // Sign request
@@ -1465,7 +1730,7 @@ namespace EsuApiLib.Rest {
                 byte[] response = readResponse( resp, null );
 
                 string responseStr = Encoding.UTF8.GetString( response );
-                Debug.WriteLine( "Response: " + responseStr );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
 
                 return parseObjectList( responseStr );
 
@@ -1509,9 +1774,9 @@ namespace EsuApiLib.Rest {
             d.LoadXml( Encoding.UTF8.GetString( dir ) );
 
             List<DirectoryEntry> entries = new List<DirectoryEntry>();
-            Debug.WriteLine(Encoding.UTF8.GetString(dir));
+            log.TraceEvent(TraceEventType.Verbose, 0, Encoding.UTF8.GetString(dir));
             XmlNodeList olist = d.GetElementsByTagName("DirectoryEntry");
-            Debug.WriteLine("Found " + olist.Count + " objects in directory");
+            log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " objects in directory");
             foreach (XmlNode xn in olist) {
                 DirectoryEntry de = new DirectoryEntry();
                 string name = null;
@@ -1560,7 +1825,7 @@ namespace EsuApiLib.Rest {
 
                 // Add date
                 string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                Debug.WriteLine("Date: " + dateHeader);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
                 headers.Add("Date", dateHeader);
 
                 // Sign request
@@ -1646,6 +1911,156 @@ namespace EsuApiLib.Rest {
 
         }
 
+        /// <summary>
+        /// Renames a file or directory within the namespace.
+        /// </summary>
+        /// <param name="source">The file or directory to rename</param>
+        /// <param name="destination">The new path for the file or directory</param>
+        /// <param name="force">If true, the desination file or 
+        /// directory will be overwritten.  Directories must be empty to be 
+        /// overwritten.</param>
+        public void Rename(ObjectPath source, ObjectPath destination, bool force) {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, source) + "?rename";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+            
+                string destPath = destination.ToString();
+                if (destPath.StartsWith("/"))
+                {
+                    destPath = destPath.Substring(1);
+                }
+                headers.Add("x-emc-path", destPath);
+
+                if (force)
+                {
+                    headers.Add("x-emc-force", "true");
+                }
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets information about the connected service.  Currently, this is
+        /// only the version of Atmos.
+        /// </summary>
+        /// <returns></returns>
+        public ServiceInformation GetServiceInformation()
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/service";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                byte[] response = readResponse(resp, null);
+
+                string responseStr = Encoding.UTF8.GetString(response);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
+                return parseServiceInformation(responseStr);
+
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+
+            return null;
+        }
+
 
 
 
@@ -1688,7 +2103,7 @@ namespace EsuApiLib.Rest {
             StringBuilder listable = new StringBuilder();
             StringBuilder nonListable = new StringBuilder();
 
-            Debug.WriteLine( "Processing " + metadata.Count() + " metadata entries" );
+            log.TraceEvent(TraceEventType.Verbose, 0,  "Processing " + metadata.Count() + " metadata entries" );
 
             foreach( Metadata meta in metadata ) {
                 if( meta.Listable ) {
@@ -1751,7 +2166,7 @@ namespace EsuApiLib.Rest {
 
             // If content type exists, add it.  Otherwise add a blank line.
             if( headers.ContainsKey( "Content-Type" ) ) {
-                Debug.WriteLine( "Content-Type: " + headers["Content-Type"] );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Content-Type: " + headers["Content-Type"] );
                 hashStr.Append( headers["Content-Type"] + "\n" );
             } else {
                 hashStr.Append( "\n" );
@@ -1777,7 +2192,7 @@ namespace EsuApiLib.Rest {
             foreach( string key in headers.Keys ) {
                 if( key.IndexOf( "x-emc" ) == 0 ) {
                     keys.Add( key.ToLower() );
-                    newheaders.Add( key.ToLower(), headers[key].Replace( "\n", "" ) );
+                    newheaders.Add( key.ToLower(), normalizeHeaderValue(headers[key]) );
                 }
             }
 
@@ -1803,9 +2218,10 @@ namespace EsuApiLib.Rest {
                 new Type[] { typeof( string ), typeof( string ) }, null );
 
             foreach( string name in headers.Keys ) {
-                Debug.WriteLine( "Setting " + name );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Setting " + name );
                 m.Invoke( con.Headers, new object[] { name, headers[name] } );
             }
+            Console.WriteLine("Headers: " + con.Headers);
 
             // Set the signature header
             con.Headers["x-emc-signature"] = hashOut;
@@ -1815,20 +2231,39 @@ namespace EsuApiLib.Rest {
 
         }
 
+        private string normalizeHeaderValue(string p)
+        {
+            p = p.Replace( "\n", "" );
+
+            int len = p.Length;
+            
+            // Normalize consecutive spaces to one space.
+            while (true)
+            {
+                p = p.Replace("  ", " ");
+                if (p.Length == len)
+                {
+                    return p;
+                }
+                len = p.Length;
+            }
+
+        }
+
         private string sign(string hashStr) {
-            Debug.WriteLine("Hashing: \n" + hashStr);
+            log.TraceEvent(TraceEventType.Verbose, 0, "Hashing: \n" + hashStr);
 
             // Compute the signature hash
             HMACSHA1 mac = new HMACSHA1(secret);
-            byte[] hashBytes = Encoding.UTF8.GetBytes(hashStr.ToString());
-            Debug.WriteLine(hashBytes.Length + " bytes to hash");
+            byte[] hashBytes = headerEncoder.GetBytes(hashStr.ToString());
+            log.TraceEvent(TraceEventType.Verbose, 0, hashBytes.Length + " bytes to hash");
             mac.TransformFinalBlock(hashBytes, 0, hashBytes.Length);
             byte[] hashData = mac.Hash;
-            Debug.WriteLine(hashData.Length + " bytes in signature");
+            log.TraceEvent(TraceEventType.Verbose, 0, hashData.Length + " bytes in signature");
             // Encode the hash in Base64.
             string hashOut = Convert.ToBase64String(hashData);
 
-            Debug.WriteLine("Hash: " + hashOut);
+            log.TraceEvent(TraceEventType.Verbose, 0, "Hash: " + hashOut);
             return hashOut;
         }
 
@@ -1837,7 +2272,7 @@ namespace EsuApiLib.Rest {
             try {
                 byte[] response = readResponse( resp, null );
                 string responseText = Encoding.UTF8.GetString( response );
-                Debug.WriteLine( "Error response: " + responseText );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Error response: " + responseText );
                 XmlDocument d = new XmlDocument();
                 d.LoadXml( responseText );
 
@@ -1851,21 +2286,21 @@ namespace EsuApiLib.Rest {
                 string message = d.GetElementsByTagName( "Message" ).Item( 0 ).InnerText;
 
 
-                Debug.WriteLine( "Error: " + code + " message: " + message );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Error: " + code + " message: " + message );
                 throw new EsuException( message, int.Parse( code ) );
 
             } catch( IOException e ) {
-                Debug.WriteLine( "Could not read error response body: " + e );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Could not read error response body: " + e );
                 // Just throw what we know from the response
                 try {
                     throw new EsuException( resp.StatusDescription, (int)resp.StatusCode );
                 } catch( IOException e1 ) {
-                    Debug.WriteLine( "Could not get response code/message: " + e1 );
+                    log.TraceEvent(TraceEventType.Verbose, 0,  "Could not get response code/message: " + e1 );
                     throw new EsuException( "Could not get response code", e1 );
                 }
             } catch( XmlException e ) {
                 try {
-                    Debug.WriteLine( "Could not parse response body for " +
+                    log.TraceEvent(TraceEventType.Verbose, 0,  "Could not parse response body for " +
                             resp.StatusCode + ": " + resp.StatusDescription + ": " +
                             e );
                     throw new EsuException( "Could not parse response body for " +
@@ -1907,7 +2342,7 @@ namespace EsuApiLib.Rest {
 
                     return output;
                 } else {
-                    Debug.WriteLine( "Content length is unknown.  Buffering output." );
+                    log.TraceEvent(TraceEventType.Verbose, 0,  "Content length is unknown.  Buffering output." );
                     // Else, use a MemoryStream to collect the response.
                     if( buffer == null ) {
                         buffer = new byte[4096];
@@ -1929,7 +2364,7 @@ namespace EsuApiLib.Rest {
         private void processTags( MetadataTags tags, Dictionary<string, string> headers ) {
             StringBuilder taglist = new StringBuilder();
 
-            Debug.WriteLine( "Processing " + tags.Count() + " metadata tag entries" );
+            log.TraceEvent(TraceEventType.Verbose, 0,  "Processing " + tags.Count() + " metadata tag entries" );
 
             foreach( MetadataTag tag in tags ) {
                 if( taglist.Length > 0 ) {
@@ -1961,7 +2396,7 @@ namespace EsuApiLib.Rest {
                 name = name.Trim();
 
                 Metadata m = new Metadata( name, value, listable );
-                Debug.WriteLine( "Meta: " + m );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Meta: " + m );
                 meta.AddMetadata( m );
             }
 
@@ -1969,7 +2404,7 @@ namespace EsuApiLib.Rest {
 
 
         private void readAcl( Acl acl, string header, EsuApiLib.Grantee.GRANTEE_TYPE type ) {
-            Debug.WriteLine( "readAcl: " + header );
+            log.TraceEvent(TraceEventType.Verbose, 0,  "readAcl: " + header );
             string[] grants = header.Split( new string[] { "," }, StringSplitOptions.RemoveEmptyEntries );
             for( int i = 0; i < grants.Length; i++ ) {
                 string[] nvpair = grants[i].Split( new string[] { "=" }, 2, StringSplitOptions.RemoveEmptyEntries );
@@ -1984,12 +2419,12 @@ namespace EsuApiLib.Rest {
                     permission = Permission.FULL_CONTROL;
                 }
 
-                Debug.WriteLine( "grant: " + grantee + "." + permission + " (" + type
+                log.TraceEvent(TraceEventType.Verbose, 0,  "grant: " + grantee + "." + permission + " (" + type
                         + ")" );
 
                 Grantee ge = new Grantee( grantee, type );
                 Grant gr = new Grant( ge, permission );
-                Debug.WriteLine( "Grant: " + gr );
+                log.TraceEvent(TraceEventType.Verbose, 0,  "Grant: " + gr );
                 acl.AddGrant( gr );
             }
         }
@@ -2016,7 +2451,7 @@ namespace EsuApiLib.Rest {
                 d.LoadXml(responseStr);
 
                 XmlNodeList olist = d.GetElementsByTagName("ObjectID");
-                Debug.WriteLine("Found " + olist.Count + " results");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " results");
                 foreach (XmlNode xn in olist)
                 {
                     objs.Add(new ObjectId(xn.InnerText));
@@ -2053,7 +2488,7 @@ namespace EsuApiLib.Rest {
                 d.LoadXml(responseStr);
 
                 XmlNodeList olist = d.GetElementsByTagName("Object");
-                Debug.WriteLine("Found " + olist.Count + " results");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " results");
                 foreach (XmlNode xn in olist)
                 {
                     ObjectResult obj = new ObjectResult();
@@ -2105,6 +2540,31 @@ namespace EsuApiLib.Rest {
             return objs;
 
         }
+
+        private ServiceInformation parseServiceInformation(string responseStr)
+        {
+            try
+            {
+                XmlDocument d = new XmlDocument();
+                d.LoadXml(responseStr);
+
+                ServiceInformation si = new ServiceInformation();
+
+                XmlNodeList olist = d.GetElementsByTagName("Atmos");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " results");
+                foreach (XmlNode xn in olist)
+                {
+                    si.AtmosVersion = xn.InnerText;
+                }
+                return si;
+            }
+            catch (XmlException e)
+            {
+                throw new EsuException("Error parsing xml object list", e);
+            }
+        }
+
+
 
         private string getResourcePath(string ctx, Identifier id) {
 		    if( id is ObjectId ) {

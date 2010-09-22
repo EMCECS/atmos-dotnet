@@ -28,6 +28,22 @@ namespace EsuApiLib {
         }
 
         /// <summary>
+        /// Gets the name of the file or directory (the last component on the path)
+        /// </summary>
+        /// <returns>the file name</returns>
+        public string GetFileName()
+        {
+            string x = path;
+            if (path.EndsWith("/"))
+            {
+                x = path.Substring(0, path.Length - 1);
+            }
+            int pos = x.LastIndexOf('/');
+            pos++; // skip "/"
+            return x.Substring(pos, x.Length - pos);
+        }
+
+        /// <summary>
         /// Returns this object identifier as a string
         /// </summary>
         /// <returns>the ID as a string</returns>
