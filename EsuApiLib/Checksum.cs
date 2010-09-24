@@ -22,6 +22,12 @@ namespace EsuApiLib
         private HashAlgorithm finalizedHash;
 
         /// <summary>
+        /// Used to store the expected checksum during read requests.  After the whole
+        /// object is read, you can compare this string to the computed string.
+        /// </summary>
+        public string ExpectedValue { get; set; }
+
+        /// <summary>
         /// Algorithm to use for checksumming.  Currently only
         /// SHA0 is supported (as of Atmos 1.4.0)
         /// </summary>
@@ -100,7 +106,7 @@ namespace EsuApiLib
         }
 
         /// <summary>
-        /// This is used as a dirty hack around C#'s hash implementation.  There isn't
+        /// This is used as a hack around C#'s hash implementation.  There isn't
         /// a good way to get the partial hash values from a HashAlgorithm object, and 
         /// the objects aren't cloneable (like in Java), so we brute force copy the
         /// object so we can obtain the partial hash value.  This is going to be
