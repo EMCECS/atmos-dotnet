@@ -34,12 +34,6 @@ namespace EsuApiLib {
     /// </summary>
     public interface EsuApi {
         /// <summary>
-        /// If true, checksums will be verified during read operations.  The default
-        /// is false.
-        /// </summary>
-        bool VerifyChecksums { set; get; }
-
-        /// <summary>
         /// Creates a new object in the cloud.
         /// </summary>
         /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
@@ -218,7 +212,21 @@ namespace EsuApiLib {
         /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
         /// <param name="buffer">the buffer to use to read the extent.  Must be large enough to read the response or an error will be thrown.  If null, a buffer will be allocated to hold the response data.  If you pass a buffer that is larger than the extent, only extent.getSize() bytes will be valid.</param>
         /// <returns>A byte array containing the requested content.</returns>
-        byte[] ReadObject( Identifier id, Extent extent, byte[] buffer );
+        byte[] ReadObject(Identifier id, Extent extent, byte[] buffer);
+
+        /// <summary>
+        /// Reads an object's content.
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
+        /// <param name="buffer">the buffer to use to read the extent.  Must be large enough to read the response or an error will be thrown.  If null, a buffer will be allocated to hold the response data.  If you pass a buffer that is larger than the extent, only extent.getSize() bytes will be valid.</param>
+        /// <param name="checksum">checksum if not null, the given checksum object will be used
+        /// to verify checksums during the read operation.  Note that only erasure coded objects 
+        /// will return checksums *and* if you're reading the object in chunks, you'll have to 
+        /// read the data back sequentially to keep the checksum consistent.  If the read operation 
+        /// does not return a checksum from the server, the checksum operation will be skipped.</param>
+        /// <returns>A byte array containing the requested content.</returns>
+        byte[] ReadObject(Identifier id, Extent extent, byte[] buffer, Checksum checksum);
 
         /// <summary>
         /// Deletes an object from the cloud.

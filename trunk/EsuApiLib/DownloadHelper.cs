@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Diagnostics;
 
 namespace EsuApiLib {
     /// <summary>
@@ -42,6 +43,13 @@ namespace EsuApiLib {
         private ArraySegment<byte> buffer;
         private bool closeStream;
         private Stream stream;
+        private Checksum checksum;
+
+        /// <summary>
+        /// If true, this object will verify the checksum of the 
+        /// object after download.
+        /// </summary>
+        public bool Checksumming { set; get; }
 
         private long currentBytes;
 
@@ -172,6 +180,11 @@ namespace EsuApiLib {
             this.closeStream = closeStream;
             this.stream = stream;
 
+            if (Checksumming)
+            {
+                checksum = new Checksum(Checksum.Algorithm.SHA0);
+            }
+
             // Get the file size.  Set to -1 if unknown.
             MetadataList sMeta = this.esu.GetSystemMetadata( id, null );
             if ( sMeta.GetMetadata( "size" ) != null ) {
@@ -213,7 +226,7 @@ namespace EsuApiLib {
                     }
 
                     // Read data from the server.
-                    byte[] responseBuffer = this.esu.ReadObject( id, extent, buffer.Array );
+                    byte[] responseBuffer = this.esu.ReadObject( id, extent, buffer.Array, checksum );
 
                     // Write to the stream
                     stream.Write( responseBuffer, 0, (int)extent.Size );
@@ -223,6 +236,16 @@ namespace EsuApiLib {
 
                     // See if we're done.
                     if ( this.currentBytes == this.totalBytes ) {
+
+                        if (Checksumming && checksum != null && checksum.ExpectedValue != null)
+                        {
+                            if (!checksum.ExpectedValue.Equals(checksum.ToString()))
+                            {
+                                throw new EsuException("Checksum validation failed.  Expected " + checksum.ExpectedValue + " but computed " + checksum.ToString());
+                            }
+                            Debug.WriteLine("Checksum OK: " + checksum.ExpectedValue);
+                        }
+
                         this.OnComplete();
                         return;
                     }

@@ -99,17 +99,6 @@ namespace EsuApiLib.Rest {
             set { protocol = value; }
         }
 
-        private bool verifyChecksums=false;
-
-        /// <summary>
-        /// If true, checksums will be verified during read operations.  The default
-        /// is false.
-        /// </summary>
-        public bool VerifyChecksums {
-            get { return verifyChecksums; }
-            set { verifyChecksums = value; }
-        }
-
         /// <summary>
         /// Creates a new EsuRestApi object
         /// </summary>
@@ -754,7 +743,24 @@ namespace EsuApiLib.Rest {
         /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
         /// <param name="buffer">the buffer to use to read the extent.  Must be large enough to read the response or an error will be thrown.  If null, a buffer will be allocated to hold the response data.  If you pass a buffer that is larger than the extent, only extent.getSize() bytes will be valid.</param>
         /// <returns>A byte array containing the requested content.</returns>
-        public byte[] ReadObject( Identifier id, Extent extent, byte[] buffer ) {
+        public byte[] ReadObject(Identifier id, Extent extent, byte[] buffer)
+        {
+            return ReadObject(id, extent, buffer, null);
+        }
+
+        /// <summary>
+        /// Reads an object's content.
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
+        /// <param name="buffer">the buffer to use to read the extent.  Must be large enough to read the response or an error will be thrown.  If null, a buffer will be allocated to hold the response data.  If you pass a buffer that is larger than the extent, only extent.getSize() bytes will be valid.</param>
+        /// <param name="checksum">checksum if not null, the given checksum object will be used
+        /// to verify checksums during the read operation.  Note that only erasure coded objects 
+        /// will return checksums *and* if you're reading the object in chunks, you'll have to 
+        /// read the data back sequentially to keep the checksum consistent.  If the read operation 
+        /// does not return a checksum from the server, the checksum operation will be skipped.</param>
+        /// <returns>A byte array containing the requested content.</returns>
+        public byte[] ReadObject( Identifier id, Extent extent, byte[] buffer, Checksum checksum ) {
             HttpWebResponse resp = null;
             try {
                 string resource = getResourcePath(context, id);
@@ -788,6 +794,23 @@ namespace EsuApiLib.Rest {
                 }
 
                 byte[] responseBuffer = readResponse( resp, buffer );
+
+                if (checksum != null && resp.Headers["x-emc-wschecksum"] != null)
+                {
+                    // Update checksum
+                    int contentLength = (int)resp.ContentLength;
+                    checksum.ExpectedValue = resp.Headers["x-emc-wschecksum"];
+                    if (contentLength == -1)
+                    {
+                        // Use buffer size
+                        checksum.Update(new ArraySegment<byte>(responseBuffer, 0, responseBuffer.Length));
+                    }
+                    else
+                    {
+                        checksum.Update(new ArraySegment<byte>(responseBuffer, 0, contentLength));
+                    }
+                }
+
                 resp.Close();
                 return responseBuffer;
 
@@ -1148,7 +1171,7 @@ namespace EsuApiLib.Rest {
                 string responseStr = Encoding.UTF8.GetString( response );
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
 
-                return parseObjectList( responseStr );
+                return parseVersionList( responseStr );
 
             } catch( UriFormatException e ) {
                 throw new EsuException( "Invalid URL", e );
@@ -2451,6 +2474,31 @@ namespace EsuApiLib.Rest {
                 d.LoadXml(responseStr);
 
                 XmlNodeList olist = d.GetElementsByTagName("ObjectID");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " results");
+                foreach (XmlNode xn in olist)
+                {
+                    objs.Add(new ObjectId(xn.InnerText));
+                }
+
+            }
+            catch (XmlException e)
+            {
+                throw new EsuException("Error parsing xml object list", e);
+            }
+
+            return objs;
+
+        }
+
+        private List<ObjectId> parseVersionList(string responseStr)
+        {
+            List<ObjectId> objs = new List<ObjectId>();
+            try
+            {
+                XmlDocument d = new XmlDocument();
+                d.LoadXml(responseStr);
+
+                XmlNodeList olist = d.GetElementsByTagName("OID");
                 log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " results");
                 foreach (XmlNode xn in olist)
                 {
