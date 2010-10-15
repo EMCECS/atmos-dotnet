@@ -1185,7 +1185,33 @@ namespace EsuApiLib {
 
         }
 
-        
+        [Test]
+        public void testGetObjectInfo()
+        {
+            MetadataList mlist = new MetadataList();
+            Metadata policy = new Metadata("policy", "retaindelete", false);
+            mlist.AddMetadata(policy);
+            ObjectId id = this.esu.CreateObject(null, mlist, Encoding.UTF8.GetBytes("hello"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+
+            ObjectInfo info = this.esu.GetObjectInfo(id);
+            Assert.NotNull(info, "ObjectInfo null");
+            Assert.NotNull(info.ObjectID, "ObjectId null");
+            Assert.NotNull(info.RawXml, "Raw XML null");
+            Assert.NotNull(info.Replicas, "Replicas is null");
+            Assert.True(info.Replicas.Count > 0, "Zero replicas found");
+            Assert.NotNull(info.Retention, "No retention information");
+            Assert.NotNull(info.Expiration, "Expiration null");
+            Assert.NotNull(info.Selection, "Selection null");
+
+            Debug.WriteLine("Expires: " + info.Expiration.EndAt);
+            Debug.WriteLine("Retention ends: " + info.Retention.EndAt);
+        }
 
         private string rand8char() {
             StringBuilder sb = new StringBuilder();
