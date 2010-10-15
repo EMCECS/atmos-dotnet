@@ -2084,6 +2084,76 @@ namespace EsuApiLib.Rest {
             return null;
         }
 
+        /// <summary>
+        /// Gets Replica, Expiration, and Retention information for an object
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public ObjectInfo GetObjectInfo(Identifier id)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, id) + "?info";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                 // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                byte[] response = readResponse(resp, null);
+
+                ObjectInfo info = new ObjectInfo(Encoding.UTF8.GetString(response));
+                return info;
+
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+            
+        }
 
 
 
@@ -2244,7 +2314,6 @@ namespace EsuApiLib.Rest {
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Setting " + name );
                 m.Invoke( con.Headers, new object[] { name, headers[name] } );
             }
-            Console.WriteLine("Headers: " + con.Headers);
 
             // Set the signature header
             con.Headers["x-emc-signature"] = hashOut;

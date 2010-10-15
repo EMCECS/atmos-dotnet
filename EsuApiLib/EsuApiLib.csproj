@@ -62,10 +62,14 @@
     <Compile Include="MetadataList.cs" />
     <Compile Include="MetadataTag.cs" />
     <Compile Include="MetadataTags.cs" />
+    <Compile Include="ObjectExpiration.cs" />
     <Compile Include="ObjectId.cs" />
+    <Compile Include="ObjectInfo.cs" />
     <Compile Include="ObjectMetadata.cs" />
     <Compile Include="ObjectPath.cs" />
+    <Compile Include="ObjectReplica.cs" />
     <Compile Include="ObjectResult.cs" />
+    <Compile Include="ObjectRetention.cs" />
     <Compile Include="Permission.cs" />
     <Compile Include="ProgressEventArgs.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

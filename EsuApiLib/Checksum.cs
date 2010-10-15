@@ -140,17 +140,14 @@ namespace EsuApiLib
                 }
                 copy = (object)c.Invoke(new object[0]);
             }
-            Console.WriteLine("new object: " + copy);
             foreach (FieldInfo fi in t.GetFields(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance))
             {
-                Console.WriteLine("Field: " + fi.Name);
                 object value = fi.GetValue(source);
                 if (value is Array)
                 {
                     // Duplicate the array
                     Array newvalue = Array.CreateInstance(value.GetType().GetElementType(), ((Array)value).Length);
                     Array.Copy((Array)value, newvalue, newvalue.Length);
-                    Console.WriteLine("Array copied");
                     value = newvalue;
                 }
                 else if (value == null || value.GetType().IsPrimitive)
@@ -161,7 +158,6 @@ namespace EsuApiLib
                 {
                     value = deepCopy(value);
                 }
-                Console.WriteLine("Setting " + fi.Name + " to " + value);
                 fi.SetValue(copy, value);
             }
 

@@ -417,5 +417,13 @@ namespace EsuApiLib {
         /// </summary>
         /// <returns></returns>
         ServiceInformation GetServiceInformation();
+
+        /// <summary>
+        /// Gets Replica, Expiration, and Retention information for an object
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        ObjectInfo GetObjectInfo(Identifier id);
+
     }
 }
