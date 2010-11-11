@@ -168,6 +168,7 @@ namespace EsuApiLib
         /// <param name="xe">The replica element</param>
         private void processReplica(XmlElement xe)
         {
+            ObjectReplica rep = new ObjectReplica();
             foreach (XmlNode repnode in xe.ChildNodes)
             {
                 if (!(repnode is XmlElement))
@@ -176,7 +177,6 @@ namespace EsuApiLib
                 }
                 XmlElement repelement = (XmlElement)repnode;
                 string tagName = repelement.LocalName;
-                ObjectReplica rep = new ObjectReplica();
                 if ("id".Equals(tagName))
                 {
                     rep.Id = repelement.InnerText;
@@ -202,8 +202,8 @@ namespace EsuApiLib
                     throw new EsuException("Unknown replica child: " + tagName);
                 }
 
-                this.Replicas.Add(rep);
             }
+            this.Replicas.Add(rep);
         }
 
         /// <summary>
