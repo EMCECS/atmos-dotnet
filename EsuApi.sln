@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EsuApiLib", "EsuApiLib\EsuA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EsuApiTest", "EsuApiTest\EsuApiTest.csproj", "{0EA1164B-D965-4A86-A71D-A261401E6CEA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObjectInfoTest", "C:\bin\ObjectInfoTest\ObjectInfoTest.csproj", "{C460C27E-BDE0-4421-B820-33C9F5B9D6FE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,6 +21,10 @@ Global
 		{0EA1164B-D965-4A86-A71D-A261401E6CEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0EA1164B-D965-4A86-A71D-A261401E6CEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0EA1164B-D965-4A86-A71D-A261401E6CEA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C460C27E-BDE0-4421-B820-33C9F5B9D6FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C460C27E-BDE0-4421-B820-33C9F5B9D6FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C460C27E-BDE0-4421-B820-33C9F5B9D6FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C460C27E-BDE0-4421-B820-33C9F5B9D6FE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
