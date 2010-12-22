@@ -154,7 +154,7 @@ namespace EsuApiLib {
         /// </summary>
         /// <param name="id">the identifier of the object to download</param>
         /// <param name="file">the file to write the object's contents to.</param>
-        public void ReadObject( ObjectId id, string file ) {
+        public void ReadObject( Identifier id, string file ) {
             Stream s;
             try {
                 s = File.OpenWrite( file );
@@ -171,7 +171,7 @@ namespace EsuApiLib {
         /// <param name="stream">the stream to write the object's contents to.</param>
         /// <param name="closeStream">specifies whether to close the stream after
         /// the transfer is complete.</param>
-        public void ReadObject( ObjectId id, Stream stream, bool closeStream ) {
+        public void ReadObject( Identifier id, Stream stream, bool closeStream ) {
 
             this.currentBytes = 0;
             this.complete = false;

@@ -176,16 +176,47 @@ namespace EsuApiLib {
         /// <param name="meta">The metadata to assign to the new object.
         /// Optional.  If null, no user metadata will be assigned to the new object.</param>
         /// <returns>the identifier of the newly-created object.</returns>
-        public ObjectId CreateObject( string file, Acl acl, MetadataList meta ) {
+        public ObjectId CreateObject(string file, Acl acl, MetadataList meta)
+        {
             Stream s;
             // Open the file and call the streaming version
-            try {
-                totalBytes = new FileInfo( file ).Length;
-                s = File.OpenRead( file );
-            } catch ( FileNotFoundException e ) {
-                throw new EsuException( "Could not open input file", e );
+            try
+            {
+                totalBytes = new FileInfo(file).Length;
+                s = File.OpenRead(file);
             }
-            return CreateObject( s, acl, meta, true );
+            catch (FileNotFoundException e)
+            {
+                throw new EsuException("Could not open input file", e);
+            }
+            return CreateObject(s, acl, meta, true);
+        }
+
+        /// <summary>
+        /// Creates a new object on the server with the contents of the given file,
+        /// acl and metadata.
+        /// </summary>
+        /// <param name="path">The ObjectPath to create the new object on.</param>
+        /// <param name="file">the path to the file to upload</param>
+        /// <param name="acl">the ACL to assign to the new object.  Optional.  If null,
+        /// the server will generate a default ACL for the file.</param>
+        /// <param name="meta">The metadata to assign to the new object.
+        /// Optional.  If null, no user metadata will be assigned to the new object.</param>
+        /// <returns>the identifier of the newly-created object.</returns>
+        public ObjectId CreateObjectOnPath(ObjectPath path, string file, Acl acl, MetadataList meta)
+        {
+            Stream s;
+            // Open the file and call the streaming version
+            try
+            {
+                totalBytes = new FileInfo(file).Length;
+                s = File.OpenRead(file);
+            }
+            catch (FileNotFoundException e)
+            {
+                throw new EsuException("Could not open input file", e);
+            }
+            return CreateObjectOnPath(path, s, acl, meta, true);
         }
 
         /// <summary>
@@ -201,8 +232,9 @@ namespace EsuApiLib {
         /// <param name="closeStream">if true, the stream will be closed after
         /// the transfer completes.  If false, the stream will not be closed.</param>
         /// <returns>the identifier of the newly-created object.</returns>
-        public ObjectId CreateObject( Stream stream, Acl acl,
-                MetadataList metadata, bool closeStream ) {
+        public ObjectId CreateObject(Stream stream, Acl acl,
+                MetadataList metadata, bool closeStream)
+        {
 
             this.currentBytes = 0;
             this.complete = false;
@@ -223,26 +255,104 @@ namespace EsuApiLib {
             ObjectId id = null;
 
             // First call should be to create object
-            try {
+            try
+            {
                 bool eof = ReadChunk();
-                id = this.esu.CreateObjectFromSegment( acl, metadata, buffer, null, checksum );
-                if ( !eof ) {
-                    this.OnProgress( buffer.Count );
-                } else {
+                id = this.esu.CreateObjectFromSegment(acl, metadata, buffer, null, checksum);
+                if (!eof)
+                {
+                    this.OnProgress(buffer.Count);
+                }
+                else
+                {
                     // No data in file? Complete
                     this.OnComplete();
                     return id;
                 }
 
                 // Continue appending
-                this.AppendChunks( id );
+                this.AppendChunks(id);
 
-            } catch ( EsuException e ) {
-                this.OnFail( e );
+            }
+            catch (EsuException e)
+            {
+                this.OnFail(e);
                 throw e;
-            } catch ( IOException e ) {
-                this.OnFail( e );
-                throw new EsuException( "Error uploading object", e );
+            }
+            catch (IOException e)
+            {
+                this.OnFail(e);
+                throw new EsuException("Error uploading object", e);
+            }
+
+            return id;
+        }
+
+        /// <summary>
+        /// Creates a new object on the server with the contents of the given stream,
+        /// acl and metadata.
+        /// </summary>
+        /// <param name="path">The ObjectPath to create the object on.</param>
+        /// <param name="stream">the stream to upload.  The stream will be read until
+        /// an EOF is encountered.</param>
+        /// <param name="acl">the ACL to assign to the new object.  Optional.  If null,
+        /// the server will generate a default ACL for the file.</param>
+        /// <param name="metadata">The metadata to assign to the new object.
+        /// Optional.  If null, no user metadata will be assigned to the new object.</param>
+        /// <param name="closeStream">if true, the stream will be closed after
+        /// the transfer completes.  If false, the stream will not be closed.</param>
+        /// <returns>the identifier of the newly-created object.</returns>
+        public ObjectId CreateObjectOnPath(ObjectPath path, Stream stream, Acl acl,
+                MetadataList metadata, bool closeStream)
+        {
+
+            this.currentBytes = 0;
+            this.complete = false;
+            this.failed = false;
+            this.error = null;
+            this.closeStream = closeStream;
+            this.stream = stream;
+
+            if (computeChecksums)
+            {
+                checksum = new Checksum(Checksum.Algorithm.SHA0);
+            }
+            else
+            {
+                checksum = null;
+            }
+
+            ObjectId id = null;
+
+            // First call should be to create object
+            try
+            {
+                bool eof = ReadChunk();
+                id = this.esu.CreateObjectFromSegmentOnPath(path, acl, metadata, buffer, null, checksum);
+                if (!eof)
+                {
+                    this.OnProgress(buffer.Count);
+                }
+                else
+                {
+                    // No data in file? Complete
+                    this.OnComplete();
+                    return id;
+                }
+
+                // Continue appending
+                this.AppendChunks(path);
+
+            }
+            catch (EsuException e)
+            {
+                this.OnFail(e);
+                throw e;
+            }
+            catch (IOException e)
+            {
+                this.OnFail(e);
+                throw new EsuException("Error uploading object", e);
             }
 
             return id;
@@ -259,7 +369,7 @@ namespace EsuApiLib {
         /// the ACL will not be modified.</param>
         /// <param name="metadata">The metadata to assign to the object.
         /// Optional.  If null, no user metadata will be modified.</param>
-        public void UpdateObject( ObjectId id, string file, Acl acl, MetadataList metadata ) {
+        public void UpdateObject( Identifier id, string file, Acl acl, MetadataList metadata ) {
             // Open the file and call the streaming version
             Stream s;
             try {
@@ -284,7 +394,7 @@ namespace EsuApiLib {
         /// Optional.  If null, no user metadata will be modified.</param>
         /// <param name="closeStream">If true, the stream will be closed after
         /// the object is updated.</param>
-        public void UpdateObject( ObjectId id, Stream stream, Acl acl,
+        public void UpdateObject( Identifier id, Stream stream, Acl acl,
                 MetadataList metadata, bool closeStream ) {
 
             this.currentBytes = 0;
@@ -336,7 +446,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Continues writing data to the object until EOF
         /// </summary>
-        private void AppendChunks( ObjectId id ) {
+        private void AppendChunks( Identifier id ) {
             while ( true ) {
                 bool eof = ReadChunk();
                 if ( eof ) {

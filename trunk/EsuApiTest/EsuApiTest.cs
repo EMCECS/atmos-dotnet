@@ -751,80 +751,180 @@ namespace EsuApiLib {
         /// Test the UploadHelper's create method
         /// </summary>
         [Test]
-        public void testCreateHelper() {
+        public void testCreateHelper()
+        {
             // use a blocksize of 1 to test multiple transfers.
-            UploadHelper uploadHelper = new UploadHelper( this.esu, new byte[1] );
+            UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
             MemoryStream ms = new MemoryStream();
-            ms.Write( Encoding.UTF8.GetBytes( "hello" ), 0, 5 );
+            ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
 
-            ms.Seek( 0, SeekOrigin.Begin );
+            ms.Seek(0, SeekOrigin.Begin);
             // Create an object from our file stream
-            ObjectId id = uploadHelper.CreateObject( 
+            ObjectId id = uploadHelper.CreateObject(
                     ms,
-                    null, null, true );
-            cleanup.Add( id );
+                    null, null, true);
+            cleanup.Add(id);
 
             // Read contents back and check them
-            string content = Encoding.UTF8.GetString( this.esu.ReadObject( id, null, null ) );
-            Assert.AreEqual( "hello", content, "object content wrong" );
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+        }
+
+        /// <summary>
+        /// Test the UploadHelper's create method
+        /// </summary>
+        [Test]
+        public void testCreateHelperPath()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+
+            // use a blocksize of 1 to test multiple transfers.
+            UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+            MemoryStream ms = new MemoryStream();
+            ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
+
+            ms.Seek(0, SeekOrigin.Begin);
+            // Create an object from our file stream
+            ObjectId id = uploadHelper.CreateObjectOnPath(
+                    op,
+                    ms,
+                    null, null, true);
+            cleanup.Add(id);
+
+            // Read contents back and check them
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(op, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
         }
 
         /// <summary>
         /// Test the UploadHelper's update method
         /// </summary>
         [Test]
-        public void testUpdateHelper() {
+        public void testUpdateHelper()
+        {
             // use a blocksize of 1 to test multiple transfers.
-            UploadHelper uploadHelper = new UploadHelper( this.esu, new byte[1] );
+            UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
 
             // Create an object with content.
-            ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "Four score and twenty years ago" ), "text/plain" );
-            Assert.IsNotNull( id,"null ID returned" );
-            cleanup.Add( id );
+            ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
 
             // update the object contents
             MemoryStream ms = new MemoryStream();
-            ms.Write( Encoding.UTF8.GetBytes( "hello" ), 0, 5 );
-            ms.Seek( 0, SeekOrigin.Begin );
+            ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
+            ms.Seek(0, SeekOrigin.Begin);
 
-            uploadHelper.UpdateObject( id, 
-                    ms, null, null, true );
+            uploadHelper.UpdateObject(id,
+                    ms, null, null, true);
 
             // Read contents back and check them
-            string content = Encoding.UTF8.GetString( this.esu.ReadObject( id, null, null ) );
-            Assert.AreEqual( "hello", content, "object content wrong" );            
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+        }
+
+        /// <summary>
+        /// Test the UploadHelper's update method
+        /// </summary>
+        [Test]
+        public void testUpdateHelperPath()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+
+            // use a blocksize of 1 to test multiple transfers.
+            UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+
+            // Create an object with content.
+            ObjectId id = this.esu.CreateObjectOnPath(op, null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // update the object contents
+            MemoryStream ms = new MemoryStream();
+            ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
+            ms.Seek(0, SeekOrigin.Begin);
+
+            uploadHelper.UpdateObject(op,
+                    ms, null, null, true);
+
+            // Read contents back and check them
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(op, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
         }
 
         /// <summary>
         /// Tests the download helper.  Tests both single and multiple requests.
         /// </summary>
         [Test]
-        public void testDownloadHelper() {
+        public void testDownloadHelper()
+        {
             // Create an object with content.
-            ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "Four score and twenty years ago" ), "text/plain" );
-            Assert.IsNotNull( id,"null ID returned" );
-            cleanup.Add( id );
+            ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
 
             // Download the content
-            DownloadHelper downloadHelper = new DownloadHelper( this.esu, null );
+            DownloadHelper downloadHelper = new DownloadHelper(this.esu, null);
             MemoryStream ms = new MemoryStream();
-            downloadHelper.ReadObject( id, ms, false );
+            downloadHelper.ReadObject(id, ms, false);
             ms.Close();
 
             // Check the download
 
-            string data = Encoding.UTF8.GetString( ms.ToArray() );
-            Assert.AreEqual( data, "Four score and twenty years ago", "object content wrong" );                                             
+            string data = Encoding.UTF8.GetString(ms.ToArray());
+            Assert.AreEqual(data, "Four score and twenty years ago", "object content wrong");
 
             // Download again 1 byte in a request
-            downloadHelper = new DownloadHelper( this.esu, new byte[1] );
+            downloadHelper = new DownloadHelper(this.esu, new byte[1]);
             ms = new MemoryStream();
-            downloadHelper.ReadObject( id, ms, false );
+            downloadHelper.ReadObject(id, ms, false);
             ms.Close();
 
             // Check the download
-            data = Encoding.UTF8.GetString( ms.ToArray() );
-            Assert.AreEqual( "Four score and twenty years ago", data, "object content wrong" );                                             
+            data = Encoding.UTF8.GetString(ms.ToArray());
+            Assert.AreEqual("Four score and twenty years ago", data, "object content wrong");
+        }
+
+        /// <summary>
+        /// Tests the download helper.  Tests both single and multiple requests.
+        /// </summary>
+        [Test]
+        public void testDownloadHelperPath()
+        {
+
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+
+            // Create an object with content.
+            ObjectId id = this.esu.CreateObjectOnPath( op, null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Download the content
+            DownloadHelper downloadHelper = new DownloadHelper(this.esu, null);
+            MemoryStream ms = new MemoryStream();
+            downloadHelper.ReadObject(op, ms, false);
+            ms.Close();
+
+            // Check the download
+
+            string data = Encoding.UTF8.GetString(ms.ToArray());
+            Assert.AreEqual(data, "Four score and twenty years ago", "object content wrong");
+
+            // Download again 1 byte in a request
+            downloadHelper = new DownloadHelper(this.esu, new byte[1]);
+            ms = new MemoryStream();
+            downloadHelper.ReadObject(op, ms, false);
+            ms.Close();
+
+            // Check the download
+            data = Encoding.UTF8.GetString(ms.ToArray());
+            Assert.AreEqual("Four score and twenty years ago", data, "object content wrong");
         }
 
         [Test]
