@@ -58,6 +58,7 @@
     <Compile Include="Grant.cs" />
     <Compile Include="Grantee.cs" />
     <Compile Include="Identifier.cs" />
+    <Compile Include="ListOptions.cs" />
     <Compile Include="Metadata.cs" />
     <Compile Include="MetadataList.cs" />
     <Compile Include="MetadataTag.cs" />

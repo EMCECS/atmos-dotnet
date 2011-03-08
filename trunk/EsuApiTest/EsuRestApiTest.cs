@@ -37,16 +37,16 @@ namespace EsuApiLib.Rest {
         /// <summary>
         /// UID to run tests with.  Change this value to your UID.
         /// </summary>
-        private String uid = "connectic";
+        private String uid = "<uid>";
         /// <summary>
         /// Shared secret for UID.  Change this value to your UID's shared secret
         /// </summary>
-        private String secret = "D7qsp4j16PBHWSiUbc/bt3lbPBY=";
+        private String secret = "<secret key>";
         /// <summary>
         /// Hostname or IP of ESU server.  Change this value to your server's
         /// hostname or ip address.
         /// </summary>
-        private String host = "192.168.15.115";
+        private String host = "<server ip>";
 
         /// <summary>
         /// Port of ESU server (usually 80 or 443)

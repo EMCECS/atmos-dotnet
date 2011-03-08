@@ -1405,55 +1405,131 @@ namespace EsuApiLib.Rest {
         /// Lists all objects with the given tag.
         /// </summary>
         /// <param name="tag">Tag the tag to search for</param>
+        /// <param name="options">Options for listing the objects. After calling ListObjects, be sure to check the value of the token property to see if there are additional results.</param>
         /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
-        public List<ObjectId> ListObjects( string tag ) {
+        public List<ObjectResult> ListObjects(MetadataTag tag, ListOptions options)
+        {
+            return ListObjects( tag.Name, options );
+        }
+
+        /// <summary>
+        /// Lists all objects with the given tag.
+        /// </summary>
+        /// <param name="tag">Tag the tag to search for</param>
+        /// <param name="options">Options for listing the objects. After calling ListObjects, be sure to check the value of the token property to see if there are additional results.</param>
+        /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
+        /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        public List<ObjectResult> ListObjects(string tag, ListOptions options)
+        {
             HttpWebResponse resp = null;
-            try {
+            try
+            {
                 string resource = context + "/objects";
-                Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
-                headers.Add( "x-emc-uid", uid );
+                headers.Add("x-emc-uid", uid);
 
                 // Add tag
-                if( tag != null ) {
-                    headers.Add( "x-emc-tags", tag );
-                } else {
-                    throw new EsuException( "tag may not be null" );
+                if (tag != null)
+                {
+                    headers.Add("x-emc-tags", tag);
+                }
+                else
+                {
+                    throw new EsuException("tag may not be null");
+                }
+
+                if (options != null)
+                {
+                    if (options.IncludeMetadata)
+                    {
+                        headers.Add("x-emc-include-meta", "1");
+                        if (options.SystemMetadata != null)
+                        {
+                            headers.Add("x-emc-system-tags",
+                                    join(options.SystemMetadata, ","));
+                        }
+                        if (options.UserMetadata != null)
+                        {
+                            headers.Add("x-emc-user-tags",
+                                    join(options.UserMetadata, ","));
+                        }
+                    }
+                    if (options.Limit > 0)
+                    {
+                        headers.Add("x-emc-limit", "" + options.Limit);
+                    }
+                    if (options.Token != null)
+                    {
+                        headers.Add("x-emc-token", options.Token);
+                    }
+
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
 
                 // Sign request
-                signRequest( con, "GET", resource, headers );
+                signRequest(con, "GET", resource, headers);
 
                 // Check response
                 resp = (HttpWebResponse)con.GetResponse();
                 int statInt = (int)resp.StatusCode;
-                if( statInt > 299 ) {
-                    handleError( resp );
+                if (statInt > 299)
+                {
+                    handleError(resp);
                 }
 
+                // Check for token
+                if (options != null)
+                {
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        options.Token = resp.Headers["x-emc-token"];
+                    }
+                    else
+                    {
+                        // No more results
+                        options.Token = null;
+                    }
+                }
+                else
+                {
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        // There are more results available, but no ListOptions
+                        // object to receive the token. Issue a warning.
+                        log.TraceEvent(TraceEventType.Warning, 1, "Results truncated.  Use ListOptions paramter to retrieve the token value for more results");
+                    }
+                }
+
+
                 // Get object id list from response
-                byte[] response = readResponse( resp, null );
+                byte[] response = readResponse(resp, null);
 
-                string responseStr = Encoding.UTF8.GetString( response );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
+                string responseStr = Encoding.UTF8.GetString(response);
+                log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
 
-                return parseObjectList( responseStr );
+                return parseObjectListWithMetadata(responseStr);
 
-            } catch( UriFormatException e ) {
-                throw new EsuException( "Invalid URL", e );
-            } catch( IOException e ) {
-                throw new EsuException( "Error connecting to server", e );
-            } catch( WebException e ) {
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
                 if (e.Response != null)
                 {
                     handleError((HttpWebResponse)e.Response);
@@ -1465,12 +1541,26 @@ namespace EsuApiLib.Rest {
             }
             finally
             {
-                if( resp != null ) {
+                if (resp != null)
+                {
                     resp.Close();
                 }
             }
             return null;
         }
+
+
+
+        /// <summary>
+        /// Lists all objects with the given tag.
+        /// </summary>
+        /// <param name="tag">Tag the tag to search for</param>
+        /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
+        /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        public List<ObjectId> ListObjects( string tag ) {
+            return getIds(ListObjects(tag, null));
+        }
+
 
         /// <summary>
         /// Lists all objects with the given tag.  This method returns both the objects' IDs as well
@@ -1785,48 +1875,109 @@ namespace EsuApiLib.Rest {
         /// </summary>
         /// <param name="path">the path to list.  Must be a directory.</param>
         /// <returns>the directory entries in the directory.</returns>
-        public List<DirectoryEntry> ListDirectory( ObjectPath path ) {
-            if (!path.IsDirectory()) {
+        public List<DirectoryEntry> ListDirectory(ObjectPath path)
+        {
+            return ListDirectory(path, null);
+        }
+
+        /// <summary>
+        /// Lists the contents of a directory.
+        /// </summary>
+        /// <param name="path">the path to list.  Must be a directory.</param>
+        /// <param name="options">Options for listing the objects. After calling 
+        /// ListObjects, be sure to check the value of the token property to see 
+        /// if there are additional results.</param>
+        /// <returns>the directory entries in the directory.</returns>
+        public List<DirectoryEntry> ListDirectory( ObjectPath path, ListOptions options ) {
+            HttpWebResponse resp = null;
+
+            if (!path.IsDirectory())
+            {
                 throw new EsuException("listDirectory must be called with a directory path");
             }
 
-            // Read out the directory's contents
-            byte[] dir = ReadObject(path, null, null);
+            string resource = getResourcePath(context, path);
+            Uri u = buildUrl(resource);
+            HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
 
-            XmlDocument d = new XmlDocument();
-            d.LoadXml( Encoding.UTF8.GetString( dir ) );
+            // Build headers
+            Dictionary<string, string> headers = new Dictionary<string, string>();
 
-            List<DirectoryEntry> entries = new List<DirectoryEntry>();
-            log.TraceEvent(TraceEventType.Verbose, 0, Encoding.UTF8.GetString(dir));
-            XmlNodeList olist = d.GetElementsByTagName("DirectoryEntry");
-            log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " objects in directory");
-            foreach (XmlNode xn in olist) {
-                DirectoryEntry de = new DirectoryEntry();
-                string name = null;
-                foreach( XmlNode child in xn.ChildNodes ) {
-                    if( child.LocalName.Equals( "ObjectID" ) ) {
-                        de.Id = new ObjectId( child.InnerText );
-                    } else if( child.LocalName.Equals( "Filename" ) ) {
-                        name = child.InnerText;
-                    } else if( child.LocalName.Equals( "FileType" ) ) {
-                        de.Type = child.InnerText;
+            headers.Add("x-emc-uid", uid);
+
+            if (options != null)
+            {
+                if (options.IncludeMetadata)
+                {
+                    headers.Add("x-emc-include-meta", "1");
+                    if (options.SystemMetadata != null)
+                    {
+                        headers.Add("x-emc-system-tags",
+                                join(options.SystemMetadata, ","));
+                    }
+                    if (options.UserMetadata != null)
+                    {
+                        headers.Add("x-emc-user-tags",
+                                join(options.UserMetadata, ","));
                     }
                 }
-
-                if( name == null ) {
-                    throw new EsuException( "Could not find object name in directory!" );
+                if (options.Limit > 0)
+                {
+                    headers.Add("x-emc-limit", "" + options.Limit);
                 }
-                if( "directory".Equals( de.Type ) ) {
-                    name += "/";
+                if (options.Token != null)
+                {
+                    headers.Add("x-emc-token", options.Token);
                 }
-
-                de.Path = new ObjectPath( path.ToString() + name );
-                entries.Add( de );
-
             }
 
-            return entries;
+            // Add date
+            string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+            log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+            headers.Add("Date", dateHeader);
+
+            // Sign request
+            signRequest(con, "GET", resource, headers);
+
+            // Check response
+            resp = (HttpWebResponse)con.GetResponse();
+            int statInt = (int)resp.StatusCode;
+            if (statInt > 299)
+            {
+                handleError(resp);
+            }
+
+            byte[] responseBuffer = readResponse(resp, null);
+
+            // Check for token
+            if (options != null)
+            {
+                if (resp.Headers["x-emc-token"] != null)
+                {
+                    options.Token = resp.Headers["x-emc-token"];
+                }
+                else
+                {
+                    // No more results
+                    options.Token = null;
+                }
+            }
+            else
+            {
+                if (resp.Headers["x-emc-token"] != null)
+                {
+                    // There are more results available, but no ListOptions
+                    // object to receive the token. Issue a warning.
+                    log.TraceEvent(TraceEventType.Warning, 1, "Results truncated.  Use ListOptions paramter to retrieve the token value for more results");
+                }
+            }
+
+            resp.Close();
+            
+
+            return parseDirectoryList( responseBuffer, path );
         }
+
 
         /// <summary>
         /// Returns all of an object's metadata and its ACL in
@@ -1912,7 +2063,23 @@ namespace EsuApiLib.Rest {
         /// <param name="id">the object to generate the URL for</param>
         /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure to ensure your expiration is in UTC (DateTimeKind.Utc)</param>
         /// <returns>a URL that can be used to share the object's content</returns>
-        public Uri getShareableUrl(Identifier id, DateTime expiration) {
+        public Uri getShareableUrl(Identifier id, DateTime expiration)
+        {
+            return GetShareableUrl(id, expiration);
+        }
+
+
+        /// <summary>
+        /// An Atmos user (UID) can construct a pre-authenticated URL to an 
+        /// object, which may then be used by anyone to retrieve the 
+        /// object (e.g., through a browser). This allows an Atmos user 
+        /// to let a non-Atmos user download a specific object. The 
+        /// entire object/file is read.
+        /// </summary>
+        /// <param name="id">the object to generate the URL for</param>
+        /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure to ensure your expiration is in UTC (DateTimeKind.Utc)</param>
+        /// <returns>a URL that can be used to share the object's content</returns>
+        public Uri GetShareableUrl(Identifier id, DateTime expiration) {
             string resource = getResourcePath(context, id);
             string uidEnc = Uri.EscapeDataString(uid);
             string unixTime = (expiration - new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds.ToString( "F0" );
@@ -2596,6 +2763,94 @@ namespace EsuApiLib.Rest {
             return null;
         }
 
+        private List<DirectoryEntry> parseDirectoryList(byte[] dir, ObjectPath path)
+        {
+            XmlDocument d = new XmlDocument();
+            d.LoadXml(Encoding.UTF8.GetString(dir));
+
+            List<DirectoryEntry> entries = new List<DirectoryEntry>();
+            log.TraceEvent(TraceEventType.Verbose, 0, Encoding.UTF8.GetString(dir));
+            XmlNodeList olist = d.GetElementsByTagName("DirectoryEntry");
+            log.TraceEvent(TraceEventType.Verbose, 0, "Found " + olist.Count + " objects in directory");
+            foreach (XmlNode xn in olist)
+            {
+                DirectoryEntry de = new DirectoryEntry();
+                string name = null;
+                foreach (XmlNode child in xn.ChildNodes)
+                {
+                    if (child.LocalName.Equals("ObjectID"))
+                    {
+                        de.Id = new ObjectId(child.InnerText);
+                    }
+                    else if (child.LocalName.Equals("Filename"))
+                    {
+                        name = child.InnerText;
+                    }
+                    else if (child.LocalName.Equals("FileType"))
+                    {
+                        de.Type = child.InnerText;
+                    }
+                }
+
+                if (name == null)
+                {
+                    throw new EsuException("Could not find object name in directory!");
+                }
+                if ("directory".Equals(de.Type))
+                {
+                    name += "/";
+                }
+
+                de.Path = new ObjectPath(path.ToString() + name);
+
+                // Next, get the metadata
+                de.SystemMetadata = new MetadataList();
+                de.UserMetadata = new MetadataList();
+                XmlNode sMetaNode = getChildByName("SystemMetadataList", xn.ChildNodes);
+                XmlNode uMetaNode = getChildByName("UserMetadataList", xn.ChildNodes);
+
+                if (sMetaNode != null)
+                {
+                    foreach (XmlNode metaNode in sMetaNode.ChildNodes)
+                    {
+                        if (!metaNode.LocalName.Equals("Metadata"))
+                        {
+                            continue;
+                        }
+
+                        string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
+                        string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
+
+                        de.SystemMetadata.AddMetadata(new Metadata(mName, mValue, false));
+                    }
+                }
+
+                if (uMetaNode != null)
+                {
+                    foreach (XmlNode metaNode in uMetaNode.ChildNodes)
+                    {
+                        if (!metaNode.LocalName.Equals("Metadata"))
+                        {
+                            continue;
+                        }
+
+                        string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
+                        string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
+                        string mListable = getChildByName("Listable", metaNode.ChildNodes).InnerText;
+
+                        de.UserMetadata.AddMetadata(new Metadata(mName, mValue, "true".Equals(mListable)));
+                    }
+                }
+
+
+
+                entries.Add(de);
+            }
+
+            return entries;
+        }
+
+
         private List<ObjectResult> parseObjectListWithMetadata(string responseStr)
         {
             List<ObjectResult> objs = new List<ObjectResult>();
@@ -2614,36 +2869,41 @@ namespace EsuApiLib.Rest {
 
                     // Next, get the metadata
                     obj.meta = new MetadataList();
-                    XmlNodeList sMeta = getChildByName("SystemMetadataList", xn.ChildNodes).ChildNodes;
-                    XmlNodeList uMeta = getChildByName("UserMetadataList", xn.ChildNodes).ChildNodes;
+                    XmlNode sMetaNode = getChildByName("SystemMetadataList", xn.ChildNodes);
+                    XmlNode uMetaNode = getChildByName("UserMetadataList", xn.ChildNodes);
 
-                    foreach (XmlNode metaNode in sMeta)
+                    if (sMetaNode != null)
                     {
-                        if (!metaNode.LocalName.Equals("Metadata"))
+                        foreach (XmlNode metaNode in sMetaNode.ChildNodes)
                         {
-                            continue;
+                            if (!metaNode.LocalName.Equals("Metadata"))
+                            {
+                                continue;
+                            }
+
+                            string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
+                            string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
+
+                            obj.meta.AddMetadata(new Metadata(mName, mValue, false));
                         }
-
-                        string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
-                        string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
-
-                        obj.meta.AddMetadata(new Metadata(mName, mValue, false));
                     }
 
-                    foreach (XmlNode metaNode in uMeta)
+                    if (uMetaNode != null)
                     {
-                        if (!metaNode.LocalName.Equals("Metadata"))
+                        foreach (XmlNode metaNode in uMetaNode.ChildNodes)
                         {
-                            continue;
+                            if (!metaNode.LocalName.Equals("Metadata"))
+                            {
+                                continue;
+                            }
+
+                            string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
+                            string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
+                            string mListable = getChildByName("Listable", metaNode.ChildNodes).InnerText;
+
+                            obj.meta.AddMetadata(new Metadata(mName, mValue, "true".Equals(mListable)));
                         }
-
-                        string mName = getChildByName("Name", metaNode.ChildNodes).InnerText;
-                        string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
-                        string mListable = getChildByName("Listable", metaNode.ChildNodes).InnerText;
-
-                        obj.meta.AddMetadata(new Metadata(mName, mValue, "true".Equals(mListable)));
                     }
-
 
                     objs.Add(obj);
                 }
@@ -2689,6 +2949,42 @@ namespace EsuApiLib.Rest {
 		    } else {
 			    return ctx + "/namespace" + id;
 		    }
+        }
+
+
+        private List<ObjectId> getIds(List<ObjectResult> list)
+        {
+            List<ObjectId> ids = new List<ObjectId>(list.Count);
+            foreach( ObjectResult result in list ) {
+                ids.Add(result.Id);
+            }
+            return ids;
+        }
+
+        /// <summary>
+        /// Joins a list of values with a delimiter
+        /// </summary>
+        /// <param name="list">The list to process</param>
+        /// <param name="delim">The string to join the list elements with</param>
+        /// <returns></returns>
+        private string join(List<string> list, string delim)
+        {
+            bool first = true;
+            StringBuilder sb = new StringBuilder();
+            foreach (string val in list)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    sb.Append(delim);
+                }
+                sb.Append(val);
+            }
+
+            return sb.ToString();
         }
 
 
