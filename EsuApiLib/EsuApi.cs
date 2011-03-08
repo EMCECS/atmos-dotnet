@@ -279,18 +279,38 @@ namespace EsuApiLib {
         /// <summary>
         /// Lists all objects with the given tag.
         /// </summary>
-        /// <param name="tag">Tag the tag to search for</param>
+        /// <param name="tag">The tag to search for</param>
         /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        [Obsolete("Use the version of ListObjects with the ListOptions parameter to ensure you get all results.")]
         List<ObjectId> ListObjects(MetadataTag tag);
 
         /// <summary>
         /// Lists all objects with the given tag.
         /// </summary>
-        /// <param name="tag">Tag the tag to search for</param>
+        /// <param name="tag">The tag to search for</param>
+        /// <param name="options">Options for listing the objects. After calling ListObjects, be sure to check the value of the token property to see if there are additional results.</param>
         /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        List<ObjectResult> ListObjects(MetadataTag tag, ListOptions options);
+
+        /// <summary>
+        /// Lists all objects with the given tag.
+        /// </summary>
+        /// <param name="tag">The tag to search for</param>
+        /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
+        /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        [Obsolete("Use the version of ListObjects with the ListOptions parameter to ensure you get all results.")]
         List<ObjectId> ListObjects(string tag);
+
+        /// <summary>
+        /// Lists all objects with the given tag.
+        /// </summary>
+        /// <param name="tag">The tag to search for</param>
+        /// <param name="options">Options for listing the objects. After calling ListObjects, be sure to check the value of the token property to see if there are additional results.</param>
+        /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
+        /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        List<ObjectResult> ListObjects(string tag, ListOptions options);
 
         /// <summary>
         /// Lists all objects with the given tag.  This method returns both the objects' IDs as well
@@ -299,6 +319,7 @@ namespace EsuApiLib {
         /// <param name="tag">Tag the tag to search for</param>
         /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        [Obsolete("Use the version of ListObjects with the ListOptions parameter for greater flexibility")]
         List<ObjectResult> ListObjectsWithMetadata(MetadataTag tag);
 
         /// <summary>
@@ -308,6 +329,7 @@ namespace EsuApiLib {
         /// <param name="tag">Tag the tag to search for</param>
         /// <returns>The list of objects with the given tag.  If no objects are found the array will be empty.</returns>
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
+        [Obsolete("Use the version of ListObjects with the ListOptions parameter for greater flexibility")]
         List<ObjectResult> ListObjectsWithMetadata(string tag);
 
         /// <summary>
@@ -344,7 +366,18 @@ namespace EsuApiLib {
         /// </summary>
         /// <param name="path">the path to list.  Must be a directory.</param>
         /// <returns>the directory entries in the directory.</returns>
+        [Obsolete("Use the version of ListDirectory with ListOptions for greater flexibility and to ensure you get all results in a large result set")]
         List<DirectoryEntry> ListDirectory(ObjectPath path);
+
+        /// <summary>
+        /// Lists the contents of a directory.
+        /// </summary>
+        /// <param name="path">the path to list.  Must be a directory.</param>
+        /// <param name="options">Options for listing the objects. After calling 
+        /// ListObjects, be sure to check the value of the token property to see 
+        /// if there are additional results.</param>
+        /// <returns>the directory entries in the directory.</returns>
+        List<DirectoryEntry> ListDirectory(ObjectPath path, ListOptions options);
 
         /// <summary>
         /// Returns all of an object's metadata and its ACL in
@@ -364,7 +397,20 @@ namespace EsuApiLib {
         /// <param name="id">the object to generate the URL for</param>
         /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure your expiration is in UTC (DateTimeKind.Utc)</param>
         /// <returns>a URL that can be used to share the object's content</returns>
+        [Obsolete("This method has the wrong capitalization and will be removed in a future version.  Use GetShareableUrl instead")]
         Uri getShareableUrl(Identifier id, DateTime expiration);
+
+        /// <summary>
+        /// An Atmos user (UID) can construct a pre-authenticated URL to an 
+        /// object, which may then be used by anyone to retrieve the 
+        /// object (e.g., through a browser). This allows an Atmos user 
+        /// to let a non-Atmos user download a specific object. The 
+        /// entire object/file is read.
+        /// </summary>
+        /// <param name="id">the object to generate the URL for</param>
+        /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure your expiration is in UTC (DateTimeKind.Utc)</param>
+        /// <returns>a URL that can be used to share the object's content</returns>
+        Uri GetShareableUrl(Identifier id, DateTime expiration);
 
         /// <summary>
         /// Gets the UID used for this object's connections.

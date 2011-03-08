@@ -497,14 +497,14 @@ namespace EsuApiLib {
             cleanup.Add(id);
 
             // List the objects.  Make sure the one we created is in the list
-            List<ObjectId> objects = this.esu.ListObjects("listable");
+            List<ObjectResult> objects = this.esu.ListObjects("listable", null);
             Assert.IsTrue(objects.Count > 0, "No objects returned");
-            Assert.IsTrue(objects.Contains(id), "object not found in list");
+            Assert.IsTrue(containsId(objects, id), "object not found in list");
 
             // Check for unlisted
             try
             {
-                this.esu.ListObjects("unlistable");
+                this.esu.ListObjects("unlistable", null);
                 Assert.Fail("Exception not thrown!");
             }
             catch (EsuException e)
@@ -512,6 +512,55 @@ namespace EsuApiLib {
                 // This should happen.
                 Assert.AreEqual(1003, e.Code, "Expected 1003 for not found");
             }
+        }
+
+        /// <summary>
+        /// Test listing objects by a tag
+        /// </summary>
+        [Test]
+        public void testListObjectsPaged()
+        {
+            // Create an object
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            ObjectId id = this.esu.CreateObject(null, mlist, null, null);
+            ObjectId id2 = this.esu.CreateObject(null, mlist, null, null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+            cleanup.Add(id2);
+
+            // List the objects.  Make sure the one we created is in the list
+            ListOptions options = new ListOptions();
+            options.Limit = 1;
+            List<ObjectResult> objects = this.esu.ListObjects("listable", options);
+            while (options.Token != null)
+            {
+                Debug.WriteLine("Continuing results with token " + options.Token);
+                objects.AddRange(this.esu.ListObjects("listable", options));
+            }
+            Assert.IsTrue(objects.Count > 0, "No objects returned");
+            Assert.IsTrue(containsId(objects, id), "object not found in list");
+            Assert.IsTrue(containsId(objects, id2), "object2 not found in list");
+        }
+
+
+        private bool containsId(List<ObjectResult> objects, ObjectId id)
+        {
+            foreach (ObjectResult res in objects)
+            {
+                if (res.Id.Equals(id))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -535,7 +584,9 @@ namespace EsuApiLib {
             cleanup.Add(id);
 
             // List the objects.  Make sure the one we created is in the list
-            List<ObjectResult> objects = this.esu.ListObjectsWithMetadata("listable");
+            ListOptions options = new ListOptions();
+            options.IncludeMetadata = true;
+            List<ObjectResult> objects = this.esu.ListObjects("listable", options);
             Assert.IsTrue(objects.Count > 0, "No objects returned");
 
             bool found = false;
@@ -953,13 +1004,116 @@ namespace EsuApiLib {
             Assert.AreEqual("", content, "object content wrong when reading by id");
             
             // List the parent path
-            List<DirectoryEntry> dirList = esu.ListDirectory( dirPath );
+            ListOptions options = new ListOptions();
+            options.IncludeMetadata = false;
+            List<DirectoryEntry> dirList = esu.ListDirectory( dirPath, options );
             Debug.WriteLine( "Dir content: " + content );
             Assert.IsTrue( directoryContains( dirList, op ), "File not found in directory" );
             Assert.IsTrue( directoryContains( dirList, dirPath2 ), "subdirectory not found in directory" );
 	    }
-    	
-        
+
+        [Test]
+        public void testListDirectoryPaged()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            string file2 = rand8char();
+            string dir2 = rand8char();
+            ObjectPath dirPath = new ObjectPath("/" + dir + "/");
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+            ObjectPath dirPath2 = new ObjectPath("/" + dir + "/" + dir2 + "/");
+            ObjectPath op2 = new ObjectPath("/" + dir + "/" + file2);
+
+            ObjectId dirId = this.esu.CreateObjectOnPath(dirPath, null, null, null, null);
+            ObjectId id = this.esu.CreateObjectOnPath(op, null, null, null, null);
+            this.esu.CreateObjectOnPath(dirPath2, null, null, null, null);
+            this.esu.CreateObjectOnPath(op2, null, null, null, null);
+            cleanup.Add(op);
+            cleanup.Add(op2);
+            cleanup.Add(dirPath2);
+            cleanup.Add(dirPath);
+
+            Debug.WriteLine("Path: " + op + " ID: " + id);
+            Assert.IsNotNull(id);
+            Assert.IsNotNull(dirId);
+
+            // List the parent path
+            ListOptions options = new ListOptions();
+            options.IncludeMetadata = false;
+            options.Limit = 1;
+            List<DirectoryEntry> dirList = esu.ListDirectory(dirPath, options);
+            // Iterate over token
+            while (options.Token != null)
+            {
+                Debug.WriteLine("Continuing with token " + options.Token);
+                dirList.AddRange(esu.ListDirectory(dirPath, options));
+            }
+            Assert.IsTrue(directoryContains(dirList, op), "File not found in directory");
+            Assert.IsTrue(directoryContains(dirList, op2), "File2 not found in directory");
+        }
+
+        [Test]
+        public void testListDirectoryWithMetadata()
+        {
+            // Create an object
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath dirPath = new ObjectPath("/" + dir + "/");
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+
+            ObjectId dirId = this.esu.CreateObjectOnPath(dirPath, null, null, null, null);
+            ObjectId id = this.esu.CreateObjectOnPath(op, null, mlist, null, null);
+            cleanup.Add(op);
+            cleanup.Add(dirPath);
+            Debug.WriteLine("Path: " + op + " ID: " + id);
+            Assert.IsNotNull(id);
+            Assert.IsNotNull(dirId);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(op, null, null));
+            Assert.AreEqual("", content, "object content wrong");
+            content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("", content, "object content wrong when reading by id");
+
+            // List the parent path
+            ListOptions options = new ListOptions();
+            options.IncludeMetadata = true;
+            //options.UserMetadata = new List<string>();
+            //options.UserMetadata.Add("listable");
+            List<DirectoryEntry> dirList = esu.ListDirectory(dirPath, options);
+            Debug.WriteLine("Dir content: " + content);
+            DirectoryEntry ent = findInDirectory(dirList, op);
+            Assert.IsNotNull(ent, "File not found in directory");
+
+            // Check metadata
+            Assert.IsNotNull(ent.SystemMetadata.GetMetadata("size"), "Size missing from metadata");
+            Assert.AreEqual("foo", ent.UserMetadata.GetMetadata("listable").Value, "Metadata value wrong");
+
+            // listable2 should not be present
+            //Assert.IsNull(ent.UserMetadata.GetMetadata("listable2"), "listable2 shouldn't be present");
+        }
+
+        private DirectoryEntry findInDirectory(List<DirectoryEntry> dir, ObjectPath path)
+        {
+            foreach (DirectoryEntry de in dir)
+            {
+                if (de.Path.Equals(path))
+                {
+                    return de;
+                }
+            }
+            return null;
+        }
+
 	    private bool directoryContains( List<DirectoryEntry> dir, ObjectPath path ) {
 		    foreach( DirectoryEntry de in dir ) {
 			    if( de.Path.Equals( path ) ) {
@@ -1098,7 +1252,7 @@ namespace EsuApiLib {
 
             DateTime expiration = DateTime.UtcNow;
             expiration += TimeSpan.FromHours(5);
-            Uri u = esu.getShareableUrl(id, expiration);
+            Uri u = esu.GetShareableUrl(id, expiration);
 
             Debug.WriteLine("Sharable URL: " + u);
 
@@ -1123,7 +1277,7 @@ namespace EsuApiLib {
 
             DateTime expiration = DateTime.UtcNow;
             expiration += TimeSpan.FromHours(5);
-            Uri u = esu.getShareableUrl(id, expiration);
+            Uri u = esu.GetShareableUrl(id, expiration);
 
             Debug.WriteLine("Sharable URL: " + u);
 

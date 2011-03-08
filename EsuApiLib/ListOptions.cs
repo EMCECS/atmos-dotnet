@@ -1,4 +1,4 @@
-﻿// Copyright © 2008, EMC Corporation.
+﻿// Copyright © 2011, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -25,87 +25,44 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
 
-namespace EsuApiLib {
+namespace EsuApiLib
+{
     /// <summary>
-    /// Contains information about an entry in a directory
-    /// listing.
+    /// Allows you to specify extended options when listing directories or listing
+    /// objects.  When using paged directory responses (limit > 0), the token
+    /// used for subsequent responses will be returned through this object.
     /// </summary>
-    public class DirectoryEntry {
-        private ObjectPath path;
-        private ObjectId id;
-        private String type;
-        private MetadataList systemMetadata;
-        private MetadataList userMetadata;
+    public class ListOptions
+    {
+        /// <summary>
+        /// Sets the maximum number of results to fetch.  Set to zero to fetch all
+        /// </summary>
+        public int Limit { get; set; }
 
         /// <summary>
-        /// Gets the object path for this entry
+        /// After calling ListDirectory or ListObjects, this will be set to the 
+        /// token value used to fetch the next group of results.  When no more
+        /// results are available, it will be null.
         /// </summary>
-        public ObjectPath Path {
-            get {
-                return path;
-            }
-            set {
-                path = value;
-            }
-        }
+        public string Token { get; set; }
 
         /// <summary>
-        /// Gets this entry's object id.
+        /// When set, indicates the list of user metadata tags that should be
+        /// fetched when IncludeMetadata is true.
         /// </summary>
-        public ObjectId Id {
-            get {
-                return id;
-            }
-            set {
-                id = value;
-            }
-        }
+        public List<string> UserMetadata { get; set; }
 
         /// <summary>
-        /// Gets the type of this object (regular, 
-        /// directory, link, etc)
+        /// When set, indicates the list of system metadata tags that should
+        /// bet fetched when IncludeMetadata is true.
         /// </summary>
-        public string Type {
-            get {
-                return type;
-            }
-            set {
-                type = value;
-            }
-        }
+        public List<string> SystemMetadata { get; set; }
 
         /// <summary>
-        /// If ListDirectory is called with IncludeMetadata=true, this
-        /// field will be populated with the object's system metadata.
+        /// When true, user and system metadata will be returned with the 
+        /// results of the operation.
         /// </summary>
-        public MetadataList SystemMetadata
-        {
-            get
-            {
-                return systemMetadata;
-            }
-            set
-            {
-                systemMetadata = value;
-            }
-        }
-
-        /// <summary>
-        /// If ListDirectory is called with IncludeMetadata=true, this
-        /// field will be populated with the object's user metadata.
-        /// </summary>
-        public MetadataList UserMetadata
-        {
-            get
-            {
-                return userMetadata;
-            }
-            set
-            {
-                userMetadata = value;
-            }
-        }
-   }
+        public bool IncludeMetadata { get; set; }
+    }
 }
