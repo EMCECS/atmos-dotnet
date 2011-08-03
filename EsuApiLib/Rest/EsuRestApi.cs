@@ -737,6 +737,99 @@ namespace EsuApiLib.Rest {
         }
 
         /// <summary>
+        /// Fetches object content as a stream
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
+        /// <returns></returns>
+        public ReadObjectStreamResponse ReadObjectStream(Identifier id, Extent extent)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, id);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                //Add extent if needed
+                if (extent != null && !extent.Equals(Extent.ALL_CONTENT))
+                {
+                    long end = extent.Offset + (extent.Size - 1);
+                    headers.Add("Range", "Bytes=" + extent.Offset + "-" + end);
+                }
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                string contentChecksum = resp.Headers["x-emc-wschecksum"];
+
+                // Parse return headers.  Regular metadata is in x-emc-meta and
+                // listable metadata is in x-emc-listable-meta
+                MetadataList meta = new MetadataList();
+                readMetadata(meta, resp.Headers["x-emc-meta"], false);
+                readMetadata(meta, resp.Headers["x-emc-listable-meta"], true);
+
+                // Parse return headers.  User grants are in x-emc-useracl and
+                // group grants are in x-emc-groupacl
+                Acl acl = new Acl();
+                readAcl(acl, resp.Headers["x-emc-useracl"], Grantee.GRANTEE_TYPE.USER);
+                readAcl(acl, resp.Headers["x-emc-groupacl"], Grantee.GRANTEE_TYPE.GROUP);
+
+                long streamLength = resp.ContentLength;
+                
+                return new ReadObjectStreamResponse(resp.GetResponseStream(), resp.ContentType,
+                    streamLength, meta, acl, extent, resp, contentChecksum);
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                    if (resp != null)
+                    {
+                        resp.Close();
+                    }
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Reads an object's content.
         /// </summary>
         /// <param name="id">the identifier of the object whose content to read.</param>

@@ -215,6 +215,14 @@ namespace EsuApiLib {
         byte[] ReadObject(Identifier id, Extent extent, byte[] buffer);
 
         /// <summary>
+        /// Fetches an object's content as a stream
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extent">the portion of the object data to read.  Optional.  If null, the entire object will be read.</param>
+        /// <returns></returns>
+        ReadObjectStreamResponse ReadObjectStream(Identifier id, Extent extent);
+
+        /// <summary>
         /// Reads an object's content.
         /// </summary>
         /// <param name="id">the identifier of the object whose content to read.</param>
