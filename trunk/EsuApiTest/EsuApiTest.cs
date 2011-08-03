@@ -217,6 +217,80 @@ namespace EsuApiLib {
             Assert.AreEqual( "el", content, "partial object content wrong" );               
         }
 
+        [Test]
+        public void testReadObjectStream()
+        {
+            Acl acl = new Acl();
+            acl.AddGrant(new Grant(new Grantee(getUid(esu.GetUid()), Grantee.GRANTEE_TYPE.USER), Permission.FULL_CONTROL));
+            acl.AddGrant(new Grant(Grantee.OTHER, Permission.READ));
+            MetadataList mlist = new MetadataList();
+            Metadata listable = new Metadata("listable", "foo", true);
+            Metadata unlistable = new Metadata("unlistable", "bar", false);
+            Metadata listable2 = new Metadata("listable2", "foo2 foo2", true);
+            Metadata unlistable2 = new Metadata("unlistable2", "bar2 bar2", false);
+            Metadata empty = new Metadata("empty", "", false);
+            //Metadata withEqual = new Metadata("withEqual", "x=y=z", false);
+            mlist.AddMetadata(listable);
+            mlist.AddMetadata(unlistable);
+            mlist.AddMetadata(listable2);
+            mlist.AddMetadata(unlistable2);
+            mlist.AddMetadata(empty);
+
+            ObjectId id = esu.CreateObject(acl, mlist, Encoding.UTF8.GetBytes("hello"), "text/plain; charset=UTF-8");
+            cleanup.Add(id);
+
+            // Read back
+            ReadObjectStreamResponse response = esu.ReadObjectStream(id, null);
+
+            // Check content
+            Assert.AreEqual(5, response.Length, "Content length incorrect");
+            Assert.AreEqual("text/plain; charset=UTF-8", response.ContentType, "Content type incorrect");
+            byte[] buffer = new byte[1024];
+            int count = response.Content.Read(buffer, 0, buffer.Length);
+            response.Close();
+
+            Assert.AreEqual(5, count, "Incorrect number of bytes read from stream");
+            string content = Encoding.UTF8.GetString(buffer, 0, count);
+            Assert.AreEqual("hello", content, "Stream content incorrect");
+
+            // Check metadata
+            MetadataList meta = response.Metadata;
+            Assert.AreEqual("foo", meta.GetMetadata("listable").Value, "value of 'listable' wrong");
+            Assert.AreEqual("foo2 foo2", meta.GetMetadata("listable2").Value, "value of 'listable2' wrong");
+            Assert.AreEqual("bar", meta.GetMetadata("unlistable").Value, "value of 'unlistable' wrong");
+            Assert.AreEqual("bar2 bar2", meta.GetMetadata("unlistable2").Value, "value of 'unlistable2' wrong");
+            Assert.AreEqual("", meta.GetMetadata("empty").Value, "value of 'empty' wrong");
+
+            // Check ACL
+            Acl newacl = response.Acl;
+            Debug.WriteLine("Comparing " + newacl + " with " + acl);
+
+            Assert.AreEqual(acl, newacl, "ACLs don't match");
+
+            // Read a segment of the data back
+            Extent extent = new Extent(1, 2);
+            response = esu.ReadObjectStream(id, extent);
+            count = response.Content.Read(buffer, 0, buffer.Length);
+            response.Close();
+            Assert.AreEqual(2, count, "Incorrect number of bytes read from stream");
+            content = Encoding.UTF8.GetString(buffer, 0, count);
+            Assert.AreEqual("el", content, "Stream content incorrect");
+
+        }
+
+        private string getUid(string uidstring)
+        {
+            // For ACLs, we just want the UID portion of the string, not the subtenantid.
+            if (uidstring.Contains("/"))
+            {
+                return uidstring.Substring(uidstring.IndexOf("/") + 1);
+            }
+            else
+            {
+                return uidstring;
+            }
+        }
+
         /// <summary>
         /// Test reading an ACL back
         /// </summary>
@@ -224,7 +298,7 @@ namespace EsuApiLib {
         public void testReadAcl() {
             // Create an object with an ACL
             Acl acl = new Acl();
-            acl.AddGrant( new Grant( new Grantee( esu.GetUid(), Grantee.GRANTEE_TYPE.USER ), Permission.FULL_CONTROL ) );
+            acl.AddGrant( new Grant( new Grantee( getUid(esu.GetUid()), Grantee.GRANTEE_TYPE.USER ), Permission.FULL_CONTROL ) );
             acl.AddGrant( new Grant( Grantee.OTHER, Permission.READ ) );
             ObjectId id = this.esu.CreateObject( acl, null, null, null );
             Assert.IsNotNull( id, "null ID returned" );
@@ -736,7 +810,7 @@ namespace EsuApiLib {
         public void testUpdateObjectAcl() {
             // Create an object with an ACL
             Acl acl = new Acl();
-            acl.AddGrant( new Grant( new Grantee( esu.GetUid(), Grantee.GRANTEE_TYPE.USER ), Permission.FULL_CONTROL ) );
+            acl.AddGrant( new Grant( new Grantee( getUid(esu.GetUid()), Grantee.GRANTEE_TYPE.USER ), Permission.FULL_CONTROL ) );
             Grant other = new Grant( Grantee.OTHER, Permission.READ );
             acl.AddGrant( other );
             ObjectId id = this.esu.CreateObject( acl, null, null, null );
@@ -1195,7 +1269,7 @@ namespace EsuApiLib {
 	    public void testGetAllMetadataById() {
             // Create an object with an ACL
             Acl acl = new Acl();
-            acl.AddGrant(new Grant(new Grantee(esu.GetUid(), Grantee.GRANTEE_TYPE.USER), Permission.FULL_CONTROL));
+            acl.AddGrant(new Grant(new Grantee(getUid(esu.GetUid()), Grantee.GRANTEE_TYPE.USER), Permission.FULL_CONTROL));
             acl.AddGrant( new Grant( Grantee.OTHER, Permission.READ ) );
             MetadataList mlist = new MetadataList();
             Metadata listable = new Metadata( "listable", "foo", true );
