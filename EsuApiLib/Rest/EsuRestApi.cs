@@ -50,6 +50,41 @@ namespace EsuApiLib.Rest {
 
         private byte[] secret;
         private string context = "/rest";
+        private int timeout = -1;
+        private int readWriteTimeout = -1;
+        private IWebProxy proxy;
+
+        /// <summary>
+        /// Specifies a Proxy to use for connections to Atmos.
+        /// </summary>
+        public IWebProxy Proxy
+        {
+            get { return proxy; }
+            set { proxy = value; }
+        }
+
+        /// <summary>
+        /// Sets the timeout on the connection
+        /// <remarks>Timeout is the number of milliseconds that a synchronous 
+        /// request made waits for a response.  The default value is 100,000 milliseconds.</remarks>
+        /// </summary>
+        public int Timeout {
+            get { return timeout; }
+            set { timeout = value; }
+        }
+
+        /// <summary>
+        /// Sets the read/write timeout on the connection.
+        /// <remarks>Controls the timeout when reading and writing from streams.  Specifically,
+        /// if you're using ReadObjectStream or Create/UpdateObjectFromStream, this controls
+        /// the timeout when calling the Read/Write methods on the underlying stream.  The
+        /// default value is 300,000 milliseconds.</remarks>
+        /// </summary>
+        public int ReadWriteTimeout
+        {
+            get { return readWriteTimeout; }
+            set { readWriteTimeout = value; }
+        }
 
         /// <summary>
         /// The context root of the web services on the server.  By default,
@@ -190,7 +225,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = context + "/objects";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -300,7 +335,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = context + "/objects";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -433,7 +468,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, path);
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -628,7 +663,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath( context, path );
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -785,7 +820,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -887,7 +922,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1011,7 +1046,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?metadata/user";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1080,7 +1115,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?metadata/system";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1151,7 +1186,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1260,7 +1295,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1341,7 +1376,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1395,7 +1430,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?acl";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1458,7 +1493,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?acl";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1517,7 +1552,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?metadata/user";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1579,7 +1614,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "/metadata/user";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1637,7 +1672,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?versions";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1701,7 +1736,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?versions";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1769,7 +1804,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, vId) + "?versions";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1831,7 +1866,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, id) + "?versions";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -1922,7 +1957,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = context + "/objects";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2083,7 +2118,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = context + "/objects";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2174,7 +2209,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = context + "/objects?listabletags";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2241,7 +2276,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id) + "?metadata/tags";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2305,7 +2340,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = context + "/objects";
                 Uri u = buildUrl( resource );
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create( u );
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2385,92 +2420,115 @@ namespace EsuApiLib.Rest {
         /// <returns>the directory entries in the directory.</returns>
         public List<DirectoryEntry> ListDirectory( ObjectPath path, ListOptions options ) {
             HttpWebResponse resp = null;
-
             if (!path.IsDirectory())
             {
                 throw new EsuException("listDirectory must be called with a directory path");
             }
 
-            string resource = getResourcePath(context, path);
-            Uri u = buildUrl(resource);
-            HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+            try {
 
-            // Build headers
-            Dictionary<string, string> headers = new Dictionary<string, string>();
+                string resource = getResourcePath(context, path);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
 
-            headers.Add("x-emc-uid", uid);
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
 
-            if (options != null)
-            {
-                if (options.IncludeMetadata)
+                headers.Add("x-emc-uid", uid);
+
+                if (options != null)
                 {
-                    headers.Add("x-emc-include-meta", "1");
-                    if (options.SystemMetadata != null)
+                    if (options.IncludeMetadata)
                     {
-                        headers.Add("x-emc-system-tags",
-                                join(options.SystemMetadata, ","));
+                        headers.Add("x-emc-include-meta", "1");
+                        if (options.SystemMetadata != null)
+                        {
+                            headers.Add("x-emc-system-tags",
+                                    join(options.SystemMetadata, ","));
+                        }
+                        if (options.UserMetadata != null)
+                        {
+                            headers.Add("x-emc-user-tags",
+                                    join(options.UserMetadata, ","));
+                        }
                     }
-                    if (options.UserMetadata != null)
+                    if (options.Limit > 0)
                     {
-                        headers.Add("x-emc-user-tags",
-                                join(options.UserMetadata, ","));
+                        headers.Add("x-emc-limit", "" + options.Limit);
+                    }
+                    if (options.Token != null)
+                    {
+                        headers.Add("x-emc-token", options.Token);
                     }
                 }
-                if (options.Limit > 0)
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
                 {
-                    headers.Add("x-emc-limit", "" + options.Limit);
+                    handleError(resp);
                 }
-                if (options.Token != null)
+
+                byte[] responseBuffer = readResponse(resp, null);
+
+                // Check for token
+                if (options != null)
                 {
-                    headers.Add("x-emc-token", options.Token);
-                }
-            }
-
-            // Add date
-            string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-            log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-            headers.Add("Date", dateHeader);
-
-            // Sign request
-            signRequest(con, "GET", resource, headers);
-
-            // Check response
-            resp = (HttpWebResponse)con.GetResponse();
-            int statInt = (int)resp.StatusCode;
-            if (statInt > 299)
-            {
-                handleError(resp);
-            }
-
-            byte[] responseBuffer = readResponse(resp, null);
-
-            // Check for token
-            if (options != null)
-            {
-                if (resp.Headers["x-emc-token"] != null)
-                {
-                    options.Token = resp.Headers["x-emc-token"];
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        options.Token = resp.Headers["x-emc-token"];
+                    }
+                    else
+                    {
+                        // No more results
+                        options.Token = null;
+                    }
                 }
                 else
                 {
-                    // No more results
-                    options.Token = null;
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        // There are more results available, but no ListOptions
+                        // object to receive the token. Issue a warning.
+                        log.TraceEvent(TraceEventType.Warning, 1, "Results truncated.  Use ListOptions paramter to retrieve the token value for more results");
+                    }
                 }
+
+                return parseDirectoryList(responseBuffer, path);
             }
-            else
+            catch (IOException e)
             {
-                if (resp.Headers["x-emc-token"] != null)
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
                 {
-                    // There are more results available, but no ListOptions
-                    // object to receive the token. Issue a warning.
-                    log.TraceEvent(TraceEventType.Warning, 1, "Results truncated.  Use ListOptions paramter to retrieve the token value for more results");
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
                 }
             }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
 
-            resp.Close();
-            
-
-            return parseDirectoryList( responseBuffer, path );
         }
 
 
@@ -2485,7 +2543,7 @@ namespace EsuApiLib.Rest {
             try {
                 string resource = getResourcePath(context, id);
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2586,7 +2644,7 @@ namespace EsuApiLib.Rest {
 
             sb.Append("" + unixTime);
 
-            string signature = Uri.EscapeDataString(sign(sb.ToString()));
+            string signature = Uri.EscapeDataString(sign(Encoding.UTF8.GetBytes(sb.ToString())));
             resource += "?uid=" + uidEnc + "&expires=" + unixTime +
                 "&signature=" + signature;
 
@@ -2610,7 +2668,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, source) + "?rename";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2686,7 +2744,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = context + "/service";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2758,7 +2816,7 @@ namespace EsuApiLib.Rest {
             {
                 string resource = getResourcePath(context, id) + "?info";
                 Uri u = buildUrl(resource);
-                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+                HttpWebRequest con = createWebRequest(u);
 
                 // Build headers
                 Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -2922,6 +2980,8 @@ namespace EsuApiLib.Rest {
         private void signRequest( HttpWebRequest con, string method, string resource, Dictionary<string, string> headers ) {
             // Build the string to hash.
             StringBuilder hashStr = new StringBuilder();
+            MemoryStream ms = new MemoryStream();
+
             hashStr.Append( method + "\n" );
 
             // If content type exists, add it.  Otherwise add a blank line.
@@ -2940,8 +3000,14 @@ namespace EsuApiLib.Rest {
             }
 
             // Add the current date and the resource.
-            hashStr.Append( headers["Date"] + "\n" +
-                    resource.ToLower() + "\n" );
+            hashStr.Append(headers["Date"] + "\n");
+            hashStr.Append( resource.ToLower() + "\n" );
+
+            // Up to here, we're using UTF-8 to encode the path.  Other headers will
+            // Be ISO-8859-1, so write the bytes and start over.
+            byte[] utfbytes = Encoding.UTF8.GetBytes(hashStr.ToString());
+            ms.Write(utfbytes, 0, utfbytes.Length);
+            hashStr = new StringBuilder();
 
             // Do the 'x-emc' headers.  The headers must be hashed in alphabetic
             // order and the values must be stripped of whitespace and newlines.
@@ -2968,8 +3034,10 @@ namespace EsuApiLib.Rest {
                 //this.trace( "xheader: " . k . "." . newheaders[k] );
                 hashStr.Append( key + ':' + newheaders[key] );
             }
+            byte[] latinbytes = headerEncoder.GetBytes(hashStr.ToString());
+            ms.Write(latinbytes, 0, latinbytes.Length);
 
-            string hashOut = sign(hashStr.ToString());
+            string hashOut = sign(ms.ToArray());
 
             // Can set all the headers, etc now.  Microsoft doesn't let you
             // set some of the headers directly.  Modify the headers through
@@ -3009,12 +3077,9 @@ namespace EsuApiLib.Rest {
 
         }
 
-        private string sign(string hashStr) {
-            log.TraceEvent(TraceEventType.Verbose, 0, "Hashing: \n" + hashStr);
-
+        private string sign(byte[] hashBytes) {
             // Compute the signature hash
             HMACSHA1 mac = new HMACSHA1(secret);
-            byte[] hashBytes = headerEncoder.GetBytes(hashStr.ToString());
             log.TraceEvent(TraceEventType.Verbose, 0, hashBytes.Length + " bytes to hash");
             mac.TransformFinalBlock(hashBytes, 0, hashBytes.Length);
             byte[] hashData = mac.Hash;
@@ -3533,6 +3598,26 @@ namespace EsuApiLib.Rest {
 
         }
 
+        private HttpWebRequest createWebRequest(Uri u)
+        {
+            HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+            if(timeout != -1) 
+            {
+                con.Timeout = timeout;
+            }
+            if (readWriteTimeout != -1)
+            {
+                con.ReadWriteTimeout = readWriteTimeout;
+            }
+
+            if (proxy != null)
+            {
+                con.Proxy = proxy;
+            }
+
+            return con;
+        }
 
 
         #endregion

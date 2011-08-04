@@ -1,4 +1,4 @@
-// Copyright � 2008, EMC Corporation.
+﻿// Copyright © 2008, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -130,6 +130,22 @@ namespace EsuApiLib {
             // Read back the content
             string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
             Assert.AreEqual("hello", content, "object content wrong");
+        }
+
+        [Test]
+        public void testCreateObjectUnicodePath()
+        {
+            string dir = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/спасибо.txt");
+            MemoryStream ms = new MemoryStream();
+
+            ObjectId id = this.esu.CreateObjectOnPath(op, null, null, Encoding.UTF8.GetBytes("спасибо"), "text/plain", null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("спасибо", content, "object content wrong");
         }
 
         [Test]
