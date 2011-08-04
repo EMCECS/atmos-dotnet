@@ -12,7 +12,6 @@ namespace EsuApiLib {
         /// <summary>
         /// The regular expression that checks whether identifiers are valid.
         /// </summary>
-        private static readonly Regex PATH_FORMAT = new Regex("^/([a-zA-Z0-9 _\\.\\+\\-]+/?)*");
 
         private string path;
 
@@ -21,9 +20,6 @@ namespace EsuApiLib {
         /// </summary>
         /// <param name="path">The identifier string</param>
         public ObjectPath( string path ) {
-            if (!PATH_FORMAT.IsMatch(path)) {
-                throw new EsuException(path + " is not a valid object path");
-            }
             this.path = path;
         }
 
