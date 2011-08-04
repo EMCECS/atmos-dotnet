@@ -101,6 +101,64 @@ namespace EsuApiLib {
             Assert.AreEqual( "hello", content, "object content wrong" );
         }
 
+        [Test]
+        public void testCreateObjectFromStream()
+        {
+            MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
+
+            ObjectId id = this.esu.CreateObjectFromStream(null, null, ms, 5, "text/plain", null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+        }
+
+        [Test]
+        public void testCreateObjectFromStreamOnPath()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+            MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
+
+            ObjectId id = this.esu.CreateObjectFromStreamOnPath(op, null, null, ms, 5, "text/plain", null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+        }
+
+        [Test]
+        public void testUpdateObjectFromStream()
+        {
+            MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
+
+            ObjectId id = this.esu.CreateObjectFromStream(null, null, ms, 5, "text/plain", null);
+            Assert.IsNotNull(id, "null ID returned");
+            cleanup.Add(id);
+
+            // Read back the content
+            string content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("hello", content, "object content wrong");
+
+            ms = new MemoryStream(Encoding.UTF8.GetBytes("And now for something different"));
+            this.esu.UpdateObjectFromStream(id, null, null, null, ms, ms.Length, "text/plain", null);
+            content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("And now for something different", content, "object content wrong");
+
+            // Update an extent
+            Extent extent = new Extent(4, 3);
+            ms = new MemoryStream(Encoding.UTF8.GetBytes("how"));
+            this.esu.UpdateObjectFromStream(id, null, null, extent, ms, ms.Length, "text/plain", null);
+            content = Encoding.UTF8.GetString(this.esu.ReadObject(id, null, null));
+            Assert.AreEqual("And how for something different", content, "object content wrong after update");
+        }
+
+
         /// <summary>
         /// Test creating an object with metadata but no content.
         /// </summary>

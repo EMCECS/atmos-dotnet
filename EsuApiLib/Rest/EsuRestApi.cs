@@ -284,6 +284,277 @@ namespace EsuApiLib.Rest {
         }
 
         /// <summary>
+        /// Creates a new object in the cloud reading the content a Stream.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we will read only 'streamLength' bytes from the stream and do not close it</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual number of bytes in the stream.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        public ObjectId CreateObjectFromStream(Acl acl, MetadataList metadata, Stream data, long streamLength, string mimeType, Checksum checksum)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/objects";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                // Figure out the mimetype
+                if (mimeType == null)
+                {
+                    mimeType = "application/octet-stream";
+                }
+
+                headers.Add("Content-Type", mimeType);
+                headers.Add("x-emc-uid", uid);
+
+                // Process metadata
+                if (metadata != null)
+                {
+                    processMetadata(metadata, headers);
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    if (!data.CanSeek)
+                    {
+                        throw new EsuException("Cannot checksum a stream that does not support seeking");
+                    }
+                    long current = data.Position;
+                    byte[] buffer = new byte[64 * 1024];
+                    for(long i=0; i<streamLength; i+=buffer.Length) {
+                        if(i+buffer.Length>streamLength) {
+                            int bytesToRead = (int)(streamLength-i);
+                            int count = data.Read(buffer, 0, bytesToRead);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        } else {
+                            int count = data.Read(buffer, 0, buffer.Length);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                    }
+                    data.Seek(current, SeekOrigin.Begin);
+
+                    //Checksum ckcopy = checksum.Clone();
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                writeRequestBodyFromStream(con, data, streamLength);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // The new object ID is returned in the location response header
+                string location = resp.Headers["location"];
+
+                // Parse the value out of the URL
+
+                MatchCollection m = OBJECTID_EXTRACTOR.Matches(location);
+                if (m.Count > 0)
+                {
+                    string id = m[0].Groups[1].Value;
+                    log.TraceEvent(TraceEventType.Verbose, 0, "Id: " + id);
+                    return new ObjectId(id);
+                }
+                else
+                {
+                    throw new EsuException("Could not find ObjectId in " + location);
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud reading the content a Stream.
+        /// </summary>
+        /// <param name="path">The path to create the new object on</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we only read 'streamLength' bytes from the stream and do not close the stream.</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual stream length.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        public ObjectId CreateObjectFromStreamOnPath(ObjectPath path, Acl acl, MetadataList metadata, Stream data, long streamLength, string mimeType, Checksum checksum)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, path);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                // Figure out the mimetype
+                if (mimeType == null)
+                {
+                    mimeType = "application/octet-stream";
+                }
+
+                headers.Add("Content-Type", mimeType);
+                headers.Add("x-emc-uid", uid);
+
+                // Process metadata
+                if (metadata != null)
+                {
+                    processMetadata(metadata, headers);
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    if (!data.CanSeek)
+                    {
+                        throw new EsuException("Cannot checksum a stream that does not support seeking");
+                    }
+                    long current = data.Position;
+                    byte[] buffer = new byte[64 * 1024];
+                    for (long i = 0; i < streamLength; i += buffer.Length)
+                    {
+                        if (i + buffer.Length > streamLength)
+                        {
+                            int bytesToRead = (int)(streamLength - i);
+                            int count = data.Read(buffer, 0, bytesToRead);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                        else
+                        {
+                            int count = data.Read(buffer, 0, buffer.Length);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                    }
+                    data.Seek(current, SeekOrigin.Begin);
+
+                    //Checksum ckcopy = checksum.Clone();
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                writeRequestBodyFromStream(con, data, streamLength);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // The new object ID is returned in the location response header
+                string location = resp.Headers["location"];
+
+                // Parse the value out of the URL
+
+                MatchCollection m = OBJECTID_EXTRACTOR.Matches(location);
+                if (m.Count > 0)
+                {
+                    string id = m[0].Groups[1].Value;
+                    log.TraceEvent(TraceEventType.Verbose, 0, "Id: " + id);
+                    return new ObjectId(id);
+                }
+                else
+                {
+                    throw new EsuException("Could not find ObjectId in " + location);
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+
+
+        /// <summary>
         /// Creates a new object in the cloud on the
         /// given path.
         /// </summary>
@@ -597,6 +868,137 @@ namespace EsuApiLib.Rest {
                 }
             }
         }
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The initial contents of the object.  Note that we only read 'streamLength' bytes from the stream and do not close the stream.</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual stream length.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        public void UpdateObjectFromStream(Identifier id, Acl acl, MetadataList metadata, Extent extent, Stream data, long streamLength, string mimeType, Checksum checksum)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, id);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = (HttpWebRequest)WebRequest.Create(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                // Figure out the mimetype
+                if (mimeType == null)
+                {
+                    mimeType = "application/octet-stream";
+                }
+
+                headers.Add("Content-Type", mimeType);
+                headers.Add("x-emc-uid", uid);
+
+                //Add extent if needed
+                if (extent != null && !extent.Equals(Extent.ALL_CONTENT))
+                {
+                    long end = extent.Offset + (extent.Size - 1);
+                    headers.Add("Range", "Bytes=" + extent.Offset + "-" + end);
+                }
+
+                // Process metadata
+                if (metadata != null)
+                {
+                    processMetadata(metadata, headers);
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
+                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+                headers.Add("Date", dateHeader);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    if (!data.CanSeek)
+                    {
+                        throw new EsuException("Cannot checksum a stream that does not support seeking");
+                    }
+                    long current = data.Position;
+                    byte[] buffer = new byte[64 * 1024];
+                    for (long i = 0; i < streamLength; i += buffer.Length)
+                    {
+                        if (i + buffer.Length > streamLength)
+                        {
+                            int bytesToRead = (int)(streamLength - i);
+                            int count = data.Read(buffer, 0, bytesToRead);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                        else
+                        {
+                            int count = data.Read(buffer, 0, buffer.Length);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                    }
+                    data.Seek(current, SeekOrigin.Begin);
+
+                    //Checksum ckcopy = checksum.Clone();
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
+
+
+                // Sign request
+                signRequest(con, "PUT", resource, headers);
+
+                // post data
+                writeRequestBodyFromStream(con, data, streamLength);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+        }
+
+
 
         /// <summary>
         /// Fetches the user metadata for the object.
@@ -2484,7 +2886,12 @@ namespace EsuApiLib.Rest {
 
         private string formatTag( Metadata meta ) {
             // strip commas and newlines for now.
-            string s = meta.Value.Replace( ",", "" );
+            string value = meta.Value;
+            if (value == null)
+            {
+                value = String.Empty;
+            }
+            string s = value.Replace( ",", "" );
             s = s.Replace( "\n", "" );
             return meta.Name + "=" + s;
         }
@@ -3079,6 +3486,53 @@ namespace EsuApiLib.Rest {
 
             return sb.ToString();
         }
+
+        private void writeRequestBodyFromStream(HttpWebRequest con, Stream data, long streamLength)
+        {
+            // post data
+            Stream s = null;
+            try
+            {
+                con.ContentLength = streamLength;
+                con.SendChunked = false;
+                byte[] buffer = new byte[64 * 1024];
+                s = con.GetRequestStream();
+                for (long i = 0; i < streamLength; )
+                {
+                    if (i + buffer.Length > streamLength)
+                    {
+                        int bytesToRead = (int)(streamLength - i);
+                        int count = data.Read(buffer, 0, bytesToRead);
+                        if (count == 0)
+                        {
+                            con.Abort();
+                            throw new EsuException("Premature EOF reading stream at offset " + i);
+                        }
+                        s.Write(buffer, 0, count);
+                        i += count;
+                    }
+                    else
+                    {
+                        int count = data.Read(buffer, 0, buffer.Length);
+                        if (count == 0)
+                        {
+                            con.Abort();
+                            throw new EsuException("Premature EOF reading stream at offset " + i);
+                        }
+                        s.Write(buffer, 0, count);
+                        i += count;
+                    }
+                }
+                s.Close();
+            }
+            catch (IOException e)
+            {
+                s.Close();
+                throw new EsuException("Error posting data", e);
+            }
+
+        }
+
 
 
         #endregion

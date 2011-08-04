@@ -26,6 +26,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.IO;
 
 namespace EsuApiLib {
     /// <summary>
@@ -109,6 +110,33 @@ namespace EsuApiLib {
                 ArraySegment<byte> data, string mimeType, Checksum checksum);
 
         /// <summary>
+        /// Creates a new object in the cloud reading the content a Stream.
+        /// </summary>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we will read only 'streamLength' bytes from the stream and do not close it</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual number of bytes in the stream.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        ObjectId CreateObjectFromStream(Acl acl, MetadataList metadata, Stream data, long streamLength, string mimeType, Checksum checksum);
+
+
+        /// <summary>
+        /// Creates a new object in the cloud reading the content a Stream.
+        /// </summary>
+        /// <param name="path">The path to create the new object on</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we only read 'streamLength' bytes from the stream and do not close the stream.</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual stream length.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>Identifier of the newly created object.</returns>
+        ObjectId CreateObjectFromStreamOnPath(ObjectPath path, Acl acl, MetadataList metadata, Stream data, long streamLength, string mimeType, Checksum checksum);
+
+
+        /// <summary>
         /// Creates a new object in the cloud using a BufferSegment on the
         /// given path.
         /// </summary>
@@ -188,6 +216,19 @@ namespace EsuApiLib {
         /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
         void UpdateObjectFromSegment(Identifier id, Acl acl, MetadataList metadata,
                 Extent extent, ArraySegment<byte> data, string mimeType, Checksum checksum);
+
+        /// <summary>
+        /// Updates an object in the cloud.
+        /// </summary>
+        /// <param name="id">The ID of the object to update</param>
+        /// <param name="acl">Access control list for the new object. Optional, set to NULL to leave the ACL unchanged.</param>
+        /// <param name="metadata">Metadata list for the new object.  Optional, set to NULL for no changes to the metadata.</param>
+        /// <param name="extent">portion of the object to update.  May be null to indicate the whole object is to be replaced.  If not null, the extent size must match the data size.</param>
+        /// <param name="data">The initial contents of the object.  Note that we only read 'streamLength' bytes from the stream and do not close the stream.</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual stream length.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        void UpdateObjectFromStream(Identifier id, Acl acl, MetadataList metadata, Extent extent, Stream data, long streamLength, string mimeType, Checksum checksum);
 
         /// <summary>
         /// Fetches the user metadata for the object.
