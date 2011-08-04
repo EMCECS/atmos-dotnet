@@ -1,0 +1,26 @@
+#summary Information on SSL validation
+
+= Introduction =
+
+When using SSL (HTTPS), the server presents a certificate to identify itself and start the encryption process.  These certificates are normally issued by a well-known certificate authority (CA) and validated using that CA's certificate.  The CA certificates are installed with Windows.
+
+However, for development environments, many organizations don't want to go through the time and expense of getting an SSL certificate from one of the CAs and opt to generate a "self-signed certificate".  While not recommended for production, these certificates are fine for development use.
+
+Since a self-signed certificate is not endorsed by one of the preinstalled CA certificates, Windows will give you an error when you try to connect to the server through IE or C#.  In particular, C# will give the error:
+
+{{{
+Could not establish trust relationship for the SSL/TLS secure channel. 
+---> System.Security.Authentication.AuthenticationException: 
+The remote certificate is invalid according to the validation procedure. 
+}}}
+
+There are two ways around this:
+
+ # Install the certificate in Windows.  If you browse to https://server/rest on your Atmos server, you will get a certificate exception that you can accept to see the REST help page.  Once on this page, you can view the certificate errors, view the certficate and install it.  More information can be found here: http://stackoverflow.com/questions/681695/what-do-i-need-to-do-to-get-internet-explorer-8-to-accept-a-self-signed-certifica
+ # Disable certificate validation in your application.  _This should only be done during development and removed for production!_ You can execute the following code during application startup to completely disable certificate validation:
+
+{{{
+ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true; 
+}}}
+
+Again, you should never disable validation in production because it leaves you open to a man-in-the-middle attack where the attacker can generate a dummy SSL certificate and proxy your communication to the real server.
