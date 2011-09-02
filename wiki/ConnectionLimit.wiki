@@ -1,0 +1,12 @@
+If you're using the .NET SDK in a multithreaded application, you may need to adjust the default connection limit.  By default, .NET will only make 2 simultaneous HTTP requests to a particular host (10 if running inside ASP.NET).  This is based on an old recommendation from the HTTP specification.  If your application is processing lots of concurrent transactions to Atmos, you will need to increase this limit to get the proper throughput and avoid timeouts.  To change the default limit, simply set the DefaultConnectionLimit on the ServicePointManager, e.g.
+
+ 
+ServicePointManager.DefaultConnectionLimit=64;  // default is 2
+
+ 
+If you don't want to make this change globally, you can make the change on the ServicePoint for Atmos, e.g.
+
+ 
+Uri atmos = new Uri("http://accesspoint.emccis.com");
+ServicePoint sp = ServicePointManager.FindServicePoint(atmos);
+sp.ConnectionLimit = 64;
