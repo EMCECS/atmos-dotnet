@@ -53,6 +53,7 @@ namespace EsuApiLib.Rest {
         private int timeout = -1;
         private int readWriteTimeout = -1;
         private IWebProxy proxy;
+        private int serverOffset = 0;
 
         /// <summary>
         /// Specifies a Proxy to use for connections to Atmos.
@@ -135,6 +136,17 @@ namespace EsuApiLib.Rest {
         }
 
         /// <summary>
+        /// The offset between local time and server time in seconds.  Set this value to
+        /// adjust the outgoing timestamps to compensate for clock skew especially when
+        /// NTP is not available.
+        /// </summary>
+        public int ServerOffset
+        {
+            get { return serverOffset; }
+            set { serverOffset = value; }
+        }
+
+        /// <summary>
         /// Creates a new EsuRestApi object
         /// </summary>
         /// <param name="host">The hostname or IP address of the ESU server</param>
@@ -212,6 +224,70 @@ namespace EsuApiLib.Rest {
         }
 
         /// <summary>
+        /// Calculates the time offset between the server and the local system in seconds.  You can set this
+        /// value on the ServerOffset property to adjust outgoing timestamps to account for clock skew.
+        /// Resolution is one second.
+        /// </summary>
+        /// <returns>The time offset between the server and the local system in seconds.</returns>
+        public int CalculateServerOffset()
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+                resp = (HttpWebResponse)con.GetResponse();
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+
+            catch (WebException e)
+            {
+                //Don't fail if we get a WebException; we may be able to extract the date
+                //header even from a failed request.
+                if (e.Response != null)
+                {
+                    resp = (HttpWebResponse)e.Response;
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+
+            if (resp != null)
+            {
+                string serverTime = resp.Headers[HttpResponseHeader.Date];
+                resp.Close();
+                if (serverTime == null)
+                {
+                    return 0;
+                }
+
+                // Parse into a GMT DateTime.
+                DateTime dt = DateTime.Parse(serverTime).ToUniversalTime();
+                DateTime here = DateTime.UtcNow;
+
+                // Calculate offset
+                TimeSpan offset = dt.Subtract(here);
+                return (int)offset.TotalSeconds;
+            }
+            else
+            {
+                resp.Close();
+                return 0;
+            }
+        }
+
+
+        /// <summary>
         /// Creates a new object in the cloud using an ArraySegment.
         /// </summary>
         /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
@@ -249,9 +325,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -362,9 +436,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -495,9 +567,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -687,9 +757,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -850,9 +918,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -956,9 +1022,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Checksum if required
                 if (checksum != null)
@@ -1059,9 +1123,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -1128,9 +1190,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -1201,9 +1261,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -1309,9 +1367,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -1384,9 +1440,7 @@ namespace EsuApiLib.Rest {
                 headers.Add( "x-emc-uid", uid );
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "DELETE", resource, headers );
@@ -1438,9 +1492,7 @@ namespace EsuApiLib.Rest {
                 headers.Add( "x-emc-uid", uid );
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -1506,9 +1558,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "POST", resource, headers );
@@ -1565,9 +1615,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "POST", resource, headers );
@@ -1626,9 +1674,7 @@ namespace EsuApiLib.Rest {
 
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "DELETE", resource, headers );
@@ -1681,9 +1727,7 @@ namespace EsuApiLib.Rest {
 
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -1744,9 +1788,7 @@ namespace EsuApiLib.Rest {
                 headers.Add( "x-emc-uid", uid );
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "POST", resource, headers );
@@ -1812,9 +1854,7 @@ namespace EsuApiLib.Rest {
                 headers.Add( "x-emc-uid", uid );
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "DELETE", resource, headers );
@@ -1877,9 +1917,7 @@ namespace EsuApiLib.Rest {
                 headers.Add("x-emc-version-oid", vId.ToString());
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "PUT", resource, headers);
@@ -2002,9 +2040,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -2137,9 +2173,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -2222,9 +2256,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -2284,9 +2316,7 @@ namespace EsuApiLib.Rest {
                 headers.Add( "x-emc-uid", uid );
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -2355,9 +2385,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString( "r" );
-                log.TraceEvent(TraceEventType.Verbose, 0,  "Date: " + dateHeader );
-                headers.Add( "Date", dateHeader );
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest( con, "GET", resource, headers );
@@ -2463,9 +2491,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -2551,9 +2577,7 @@ namespace EsuApiLib.Rest {
                 headers.Add("x-emc-uid", uid);
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "HEAD", resource, headers);
@@ -2688,9 +2712,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "POST", resource, headers);
@@ -2752,9 +2774,7 @@ namespace EsuApiLib.Rest {
                 headers.Add("x-emc-uid", uid);
 
                 // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -2824,9 +2844,7 @@ namespace EsuApiLib.Rest {
                 headers.Add("x-emc-uid", uid);
 
                  // Add date
-                string dateHeader = DateTime.Now.ToUniversalTime().ToString("r");
-                log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
-                headers.Add("Date", dateHeader);
+                addDateHeader(headers);
 
                 // Sign request
                 signRequest(con, "GET", resource, headers);
@@ -3617,6 +3635,15 @@ namespace EsuApiLib.Rest {
             }
 
             return con;
+        }
+
+        private void addDateHeader(Dictionary<string, string> headers)
+        {
+            DateTime dt = DateTime.Now.ToUniversalTime();
+            dt = dt.AddSeconds(serverOffset);
+            string dateHeader = dt.ToString("r");
+            log.TraceEvent(TraceEventType.Verbose, 0, "Date: " + dateHeader);
+            headers.Add("Date", dateHeader);
         }
 
 

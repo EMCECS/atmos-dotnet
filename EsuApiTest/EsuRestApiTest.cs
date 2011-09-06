@@ -37,16 +37,16 @@ namespace EsuApiLib.Rest {
         /// <summary>
         /// UID to run tests with.  Change this value to your UID.
         /// </summary>
-        private String uid = "<uid>";
+        private String uid = "57c8c5359dae4f22bf7de94c5d2d7081/testcases";
         /// <summary>
         /// Shared secret for UID.  Change this value to your UID's shared secret
         /// </summary>
-        private String secret = "<secret key>";
+        private String secret = "AiM94EDrsI+lQzeqB7857lo+3Qk=";
         /// <summary>
         /// Hostname or IP of ESU server.  Change this value to your server's
         /// hostname or ip address.
         /// </summary>
-        private String host = "<server ip>";
+        private String host = "lciga070.lss.emc.com";
 
         /// <summary>
         /// Port of ESU server (usually 80 or 443)
@@ -107,6 +107,22 @@ namespace EsuApiLib.Rest {
                 return;
             }
             Assert.Fail( "Exception not thrown!" );
+
+        }
+
+        [Test]
+        public void testServerOffset()
+        {
+            // Check the server offset
+            ((EsuRestApi)this.esu).ServerOffset = ((EsuRestApi)this.esu).CalculateServerOffset();
+            Console.WriteLine("Server offset is " + ((EsuRestApi)this.esu).ServerOffset + " seconds");
+
+            // Try creating an object
+            testCreateEmptyObject();
+
+            // Try a nonzero offset in case the clocks are in sync
+            ((EsuRestApi)this.esu).ServerOffset = 15;
+            testCreateEmptyObject();
 
         }
 
