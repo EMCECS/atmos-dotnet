@@ -70,6 +70,24 @@ namespace EsuApiLib {
             return meta.Count;
         }
 
+        /// <summary>
+        /// Outputs the contents of the MetadataList in a human-readable format.
+        /// </summary>
+        /// <returns>A string containing the contents of the MetadataList</returns>
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("{");
+            foreach(String key in meta.Keys) {
+                Metadata m = meta[key];
+                sb.Append(key + "=>" + m.Value);
+                sb.Append(",");
+            }
+
+            sb.Append("}");
+            return sb.ToString();
+        }
+
         #region IEnumerable<Metadata> Members
 
         /// <summary>

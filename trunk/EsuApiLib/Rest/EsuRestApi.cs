@@ -105,7 +105,11 @@ namespace EsuApiLib.Rest {
             get { return host; }
         }
 
-        private int port;
+        /// <summary>
+        /// The port number for Atmos.  Generally, this is 80 for HTTP
+        /// and 443 for HTTPS.
+        /// </summary>
+        protected int port;
 
         /// <summary>
         /// The port number of the ESU server.  Usually, this is 80 for
@@ -125,10 +129,14 @@ namespace EsuApiLib.Rest {
             get { return uid; }
         }
 
-        private string protocol;
+        /// <summary>
+        /// The protocol used.  Generally, this is "http", or "https"
+        /// </summary>
+        protected string protocol;
 
         /// <summary>
-        /// The protocol used.  Generally is "http" or "https".
+        /// The protocol used.  Generally, this is "http", or "https".
+        /// Use this to override the protocol, e.g. use https on port 10080.
         /// </summary>
         public string Protocol {
             get { return protocol; }
@@ -2468,7 +2476,7 @@ namespace EsuApiLib.Rest {
                 {
                     if (options.IncludeMetadata)
                     {
-                        headers.Add("x-emc-include-meta", "1");
+                        headers.Add("x-emc-include-meta", "true");
                         if (options.SystemMetadata != null)
                         {
                             headers.Add("x-emc-system-tags",
@@ -2926,7 +2934,7 @@ namespace EsuApiLib.Rest {
         /**
          * Builds a new URL to the given resource
          */
-        private Uri buildUrl( string resource ) {
+        protected virtual Uri buildUrl( string resource ) {
             return new Uri( protocol + "://" + host + ":" + port + resource );
         }
 
@@ -3349,7 +3357,8 @@ namespace EsuApiLib.Rest {
         private List<DirectoryEntry> parseDirectoryList(byte[] dir, ObjectPath path)
         {
             XmlDocument d = new XmlDocument();
-            d.LoadXml(Encoding.UTF8.GetString(dir));
+            String s = Encoding.UTF8.GetString(dir);
+            d.LoadXml(s);
 
             List<DirectoryEntry> entries = new List<DirectoryEntry>();
             log.TraceEvent(TraceEventType.Verbose, 0, Encoding.UTF8.GetString(dir));
