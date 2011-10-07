@@ -1,0 +1,18 @@
+#summary Compensate for clock skew between the local client and Atmos
+= Introduction =
+
+By default, each Atmos request is signed with the current timestamp and sent to Atmos.  The server checks this timestamp to make sure it is within 5 minutes of the current time otherwise the request is rejected with HTTP 403: The request timestamp was outside the
+valid time window (code 1031).
+
+In certain cases, the local clock may be incorrectly set, causing this error on legitimate requests.
+
+= Details =
+
+Starting with the .NET wrapper, version 1.4.1.20 a new feature is available to check and set the clock skew between the client and server.  This makes a generic request to the Atmos server and parses the server's current date and time from the response.  You can then take that value and set it on the !ClockSkew property and the wrapper will apply that time offset to each request.
+
+Running the code is as simple as:
+
+{{{
+    EsuRestApi atmos = new EsuRestApi(...);
+    atmos.ServerOffset = atmos.CalculateServerOffset();
+}}}
