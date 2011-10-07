@@ -3,6 +3,7 @@
 	<target name="zip">
 		<zip destfile="EsuDotNet.zip">
 			<zipfileset dir=".">
+				<include name="EsuApiLib/**"/>
 				<exclude name="EsuApiTest/**"/>
 				<exclude name="EsuApiLib/bin/**"/>
 				<exclude name="EsuApiLib/obj/**"/>
@@ -17,6 +18,7 @@
 		</zip>
 		<zip destfile="EsuDotNetTest.zip">
 			<zipfileset dir=".">
+				<include name="EsuApiTest/**"/>
 				<exclude name="EsuApiLib/**"/>
 				<exclude name="EsuApiTest/bin/**"/>
 				<exclude name="EsuApiTest/obj/**"/>
