@@ -76,7 +76,7 @@ namespace EsuApiLib
             Replicas = new List<ObjectReplica>();
             this.RawXml = xml;
             parse(xml);
-            Debug.WriteLine("Replica XML: " + xml);
+            //Debug.WriteLine("Replica XML: " + xml);
         }
 
         /// <summary>
@@ -287,7 +287,7 @@ namespace EsuApiLib
                 // can't be null.  Initialize it to min value.
                 return DateTime.MinValue;
             }
-            Debug.WriteLine("XML dateTime: " + text);
+            //Debug.WriteLine("XML dateTime: " + text);
             return DateTime.Parse(text);
         }
     }
