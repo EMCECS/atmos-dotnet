@@ -43,6 +43,7 @@ namespace EsuApiLib {
         private EsuApi esu;
         private bool closeStream;
         private Stream stream;
+        private string contentType = null;
 
         private Exception error;
 
@@ -102,6 +103,15 @@ namespace EsuApiLib {
         {
             get { return computeChecksums; }
             set { computeChecksums = value; }
+        }
+
+        /// <summary>
+        /// Sets the content type of the object to be used during create/update operations
+        /// </summary>
+        public string ContentType
+        {
+            get { return contentType; }
+            set { contentType = value; }
         }
 	
 
@@ -258,7 +268,7 @@ namespace EsuApiLib {
             try
             {
                 bool eof = ReadChunk();
-                id = this.esu.CreateObjectFromSegment(acl, metadata, buffer, null, checksum);
+                id = this.esu.CreateObjectFromSegment(acl, metadata, buffer, contentType, checksum);
                 if (!eof)
                 {
                     this.OnProgress(buffer.Count);
@@ -328,7 +338,7 @@ namespace EsuApiLib {
             try
             {
                 bool eof = ReadChunk();
-                id = this.esu.CreateObjectFromSegmentOnPath(path, acl, metadata, buffer, null, checksum);
+                id = this.esu.CreateObjectFromSegmentOnPath(path, acl, metadata, buffer, contentType, checksum);
                 if (!eof)
                 {
                     this.OnProgress(buffer.Count);
@@ -417,7 +427,7 @@ namespace EsuApiLib {
             try {
                 bool eof = ReadChunk();
                 this.esu.UpdateObjectFromSegment( id, acl, metadata, null, buffer,
-                        null, checksum );
+                        contentType, checksum );
 
                 if ( !eof ) {
                     this.OnProgress( buffer.Count );
@@ -456,7 +466,7 @@ namespace EsuApiLib {
                 }
 
                 Extent extent = new Extent( currentBytes, buffer.Count );
-                esu.UpdateObjectFromSegment( id, null, null, extent, buffer, null, checksum );
+                esu.UpdateObjectFromSegment( id, null, null, extent, buffer, contentType, checksum );
                 this.OnProgress( buffer.Count );
             }
 

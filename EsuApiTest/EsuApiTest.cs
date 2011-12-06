@@ -954,6 +954,7 @@ namespace EsuApiLib {
         {
             // use a blocksize of 1 to test multiple transfers.
             UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+            uploadHelper.ContentType = "text/plain";
             MemoryStream ms = new MemoryStream();
             ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
 
@@ -981,6 +982,7 @@ namespace EsuApiLib {
 
             // use a blocksize of 1 to test multiple transfers.
             UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+            uploadHelper.ContentType = "text/plain";
             MemoryStream ms = new MemoryStream();
             ms.Write(Encoding.UTF8.GetBytes("hello"), 0, 5);
 
@@ -1005,6 +1007,7 @@ namespace EsuApiLib {
         {
             // use a blocksize of 1 to test multiple transfers.
             UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+            uploadHelper.ContentType = "text/plain";
 
             // Create an object with content.
             ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
@@ -1036,6 +1039,7 @@ namespace EsuApiLib {
 
             // use a blocksize of 1 to test multiple transfers.
             UploadHelper uploadHelper = new UploadHelper(this.esu, new byte[1]);
+            uploadHelper.ContentType = "text/plain";
 
             // Create an object with content.
             ObjectId id = this.esu.CreateObjectOnPath(op, null, null, Encoding.UTF8.GetBytes("Four score and twenty years ago"), "text/plain");
@@ -1512,6 +1516,18 @@ namespace EsuApiLib {
             {
                 Assert.AreEqual(testData[i], outData[i], "Arrays differ at offset " + i);
             }
+        }
+
+        [Test]
+        public void testAppendChecksum()
+        {
+            Checksum ck = new Checksum(Checksum.Algorithm.SHA0);
+            ObjectId id = esu.CreateObject(null, null, Encoding.UTF8.GetBytes("hello"), "text/plain", ck);
+            cleanup.Add(id);
+
+            esu.UpdateObject(id, null, null, new Extent(5, 6), Encoding.UTF8.GetBytes(" world"), null, ck);
+            
+
         }
 
         /// <summary>
