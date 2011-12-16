@@ -32,7 +32,7 @@ namespace EsuApiLib
         /// SHA0 is supported (as of Atmos 1.4.0)
         /// </summary>
         public enum Algorithm
-        {   
+        {
             /// <summary>
             /// Use the SHA0 Algorithm
             /// </summary>
@@ -73,7 +73,8 @@ namespace EsuApiLib
         /// Updates a partial checksum with the given data.
         /// </summary>
         /// <param name="data"></param>
-        public void Update( ArraySegment<byte> data ) {
+        public void Update(ArraySegment<byte> data)
+        {
             finalizedHash = (HashAlgorithm)deepCopy(hash);
             hash.TransformBlock(data.Array, data.Offset, data.Count, null, 0);
 
@@ -120,14 +121,14 @@ namespace EsuApiLib
             Type t = source.GetType();
             Debug.WriteLine("Copying: " + source);
 
-            object copy=null;
+            object copy = null;
             // find the no-arg
 
             if (source is IntCounter)
             {
                 ConstructorInfo c = t.GetConstructor(new Type[] { typeof(int) });
                 FieldInfo arrayField = t.GetField("array", BindingFlags.NonPublic | BindingFlags.Instance);
-                Array arr = (Array) arrayField.GetValue(source);
+                Array arr = (Array)arrayField.GetValue(source);
                 copy = c.Invoke(new object[] { arr.Length });
             }
             else
@@ -140,25 +141,29 @@ namespace EsuApiLib
                 }
                 copy = (object)c.Invoke(new object[0]);
             }
-            foreach (FieldInfo fi in t.GetFields(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance))
+            while (t != null)
             {
-                object value = fi.GetValue(source);
-                if (value is Array)
+                foreach (FieldInfo fi in t.GetFields(BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance))
                 {
-                    // Duplicate the array
-                    Array newvalue = Array.CreateInstance(value.GetType().GetElementType(), ((Array)value).Length);
-                    Array.Copy((Array)value, newvalue, newvalue.Length);
-                    value = newvalue;
+                    object value = fi.GetValue(source);
+                    if (value is Array)
+                    {
+                        // Duplicate the array
+                        Array newvalue = Array.CreateInstance(value.GetType().GetElementType(), ((Array)value).Length);
+                        Array.Copy((Array)value, newvalue, newvalue.Length);
+                        value = newvalue;
+                    }
+                    else if (value == null || value.GetType().IsPrimitive)
+                    {
+                        // Ignore
+                    }
+                    else
+                    {
+                        value = deepCopy(value);
+                    }
+                    fi.SetValue(copy, value);
                 }
-                else if (value == null || value.GetType().IsPrimitive)
-                {
-                    // Ignore
-                }
-                else
-                {
-                    value = deepCopy(value);
-                }
-                fi.SetValue(copy, value);
+                t = t.BaseType;
             }
 
             return copy;
