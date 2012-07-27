@@ -33,6 +33,7 @@ using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using System.Reflection;
 using System.Xml;
+using System.Linq;
 
 namespace EsuApiLib.Rest {
     /// <summary>
@@ -54,6 +55,7 @@ namespace EsuApiLib.Rest {
         private int readWriteTimeout = -1;
         private IWebProxy proxy;
         private int serverOffset = 0;
+        private Dictionary<string, string> customHeaders;
 
         /// <summary>
         /// Specifies a Proxy to use for connections to Atmos.
@@ -152,6 +154,15 @@ namespace EsuApiLib.Rest {
         {
             get { return serverOffset; }
             set { serverOffset = value; }
+        }
+
+        /// <summary>
+        /// Optional custom headers to use for each request (i.e. for a 3rd party authentication proxy)
+        /// </summary>
+        public Dictionary<string, string> CustomHeaders
+        {
+            get { return customHeaders; }
+            set { customHeaders = value; }
         }
 
         /// <summary>
@@ -3064,6 +3075,9 @@ namespace EsuApiLib.Rest {
             ms.Write(latinbytes, 0, latinbytes.Length);
 
             string hashOut = sign(ms.ToArray());
+
+            // add custom headers (i.e. for 3rd party authentication proxy)
+            if (customHeaders != null) headers = headers.Concat(customHeaders).ToDictionary(e => e.Key, e => e.Value);
 
             // Can set all the headers, etc now.  Microsoft doesn't let you
             // set some of the headers directly.  Modify the headers through

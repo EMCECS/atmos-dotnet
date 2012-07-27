@@ -37,16 +37,16 @@ namespace EsuApiLib.Rest {
         /// <summary>
         /// UID to run tests with.  Change this value to your UID.
         /// </summary>
-        private String uid = "a2a6ce3be6f74d3f860fae5057a73abf/testcases";
+        private String uid = "15f02fc57acd4e17bb79c3e83822e2c9/A50231654471c3a4fa57";
         /// <summary>
         /// Shared secret for UID.  Change this value to your UID's shared secret
         /// </summary>
-        private String secret = "/UG9IowWDKwQreCj+qlBtuXe6ew=";
+        private String secret = "MrJjsV+LdcpT+C6AWGe0Infntiw=";
         /// <summary>
         /// Hostname or IP of ESU server.  Change this value to your server's
         /// hostname or ip address.
         /// </summary>
-        private String host = "lciga090.lss.emc.com";
+        private String host = "api.atmosonline.com";
 
         /// <summary>
         /// Port of ESU server (usually 80 or 443)
@@ -126,5 +126,17 @@ namespace EsuApiLib.Rest {
 
         }
 
+        /// <summary>
+        /// NOTE: This doesn't actually test if the headers are present in the request.
+        ///       Use tcpmon or wireshark to verify.
+        /// </summary>
+        [Test]
+        public void testCustomHeaders()
+        {
+            Dictionary<string, string> customHeaders = new Dictionary<string, string>();
+            customHeaders.Add("myCustomHeader", "Hello World!");
+            ((EsuRestApi) this.esu).CustomHeaders = customHeaders;
+            this.esu.GetServiceInformation();
+        }
     }
 }
