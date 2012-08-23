@@ -51,7 +51,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ACryptoHashNet, Version=1.0.3563.20920, Culture=neutral, processorArchitecture=MSIL" />
+    <Reference Include="ACryptoHashNet, Version=1.0.4367.22610, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>

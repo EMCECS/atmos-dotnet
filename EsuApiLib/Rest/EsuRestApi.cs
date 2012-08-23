@@ -1398,17 +1398,22 @@ namespace EsuApiLib.Rest {
                     handleError( resp );
                 }
 
-                byte[] responseBuffer = readResponse( resp, buffer );
+                byte[] responseBuffer = readResponse( resp, buffer, extent );
 
                 if (checksum != null && resp.Headers["x-emc-wschecksum"] != null)
                 {
                     // Update checksum
                     int contentLength = (int)resp.ContentLength;
                     checksum.ExpectedValue = resp.Headers["x-emc-wschecksum"];
-                    if (contentLength == -1)
+                    if (contentLength == -1 && extent == null)
                     {
                         // Use buffer size
                         checksum.Update(new ArraySegment<byte>(responseBuffer, 0, responseBuffer.Length));
+                    }
+                    else if (contentLength == -1 && extent != null)
+                    {
+                        // Use extent size
+                        checksum.Update(new ArraySegment<byte>(responseBuffer, 0, (int)extent.Size));
                     }
                     else
                     {
@@ -1759,7 +1764,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Get object id list from response
-                byte[] response = readResponse( resp, null );
+                byte[] response = readResponse( resp, null, null );
 
                 string responseStr = Encoding.UTF8.GetString( response );
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
@@ -2097,7 +2102,7 @@ namespace EsuApiLib.Rest {
 
 
                 // Get object id list from response
-                byte[] response = readResponse(resp, null);
+                byte[] response = readResponse(resp, null, null);
 
                 string responseStr = Encoding.UTF8.GetString(response);
                 log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
@@ -2206,7 +2211,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Get object id list from response
-                byte[] response = readResponse(resp, null);
+                byte[] response = readResponse(resp, null, null);
 
                 string responseStr = Encoding.UTF8.GetString(response);
                 log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
@@ -2417,7 +2422,7 @@ namespace EsuApiLib.Rest {
                 }
 
                 // Get object id list from response
-                byte[] response = readResponse( resp, null );
+                byte[] response = readResponse( resp, null, null );
 
                 string responseStr = Encoding.UTF8.GetString( response );
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Response: " + responseStr );
@@ -2523,7 +2528,7 @@ namespace EsuApiLib.Rest {
                     handleError(resp);
                 }
 
-                byte[] responseBuffer = readResponse(resp, null);
+                byte[] responseBuffer = readResponse(resp, null, null);
 
                 // Check for token
                 if (options != null)
@@ -2806,7 +2811,7 @@ namespace EsuApiLib.Rest {
                     handleError(resp);
                 }
 
-                byte[] response = readResponse(resp, null);
+                byte[] response = readResponse(resp, null, null);
 
                 string responseStr = Encoding.UTF8.GetString(response);
                 log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
@@ -2876,7 +2881,7 @@ namespace EsuApiLib.Rest {
                     handleError(resp);
                 }
 
-                byte[] response = readResponse(resp, null);
+                byte[] response = readResponse(resp, null, null);
 
                 ObjectInfo info = new ObjectInfo(Encoding.UTF8.GetString(response));
                 return info;
@@ -3134,7 +3139,7 @@ namespace EsuApiLib.Rest {
         private void handleError( HttpWebResponse resp ) {
             // Try and read the response body.
             try {
-                byte[] response = readResponse( resp, null );
+                byte[] response = readResponse( resp, null, null );
                 string responseText = Encoding.UTF8.GetString( response );
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Error response: " + responseText );
                 XmlDocument d = new XmlDocument();
@@ -3178,28 +3183,52 @@ namespace EsuApiLib.Rest {
 
         }
 
-        private byte[] readResponse( HttpWebResponse resp, byte[] buffer ) {
+        private byte[] readResponse( HttpWebResponse resp, byte[] buffer, Extent extent ) {
             Stream rs = resp.GetResponseStream();
             try {
                 byte[] output;
                 int contentLength = (int)resp.ContentLength;
                 // If we know the content length, read it directly into a buffer.
-                if( contentLength != -1 ) {
-                    if( buffer != null && buffer.Length < contentLength ) {
+                if( contentLength != -1 || extent != null ) {
+                    if( buffer != null && contentLength != -1 && buffer.Length < contentLength ) {
                         throw new EsuException( "The response buffer was not long enough to hold the response: " + buffer.Length + "<" + contentLength );
+                    }
+                    else if (extent != null && buffer != null && buffer.Length < extent.Size)
+                    {
+                        throw new EsuException("The response buffer was not long enough to hold the response: " + buffer.Length + "<" + extent.Size);
+                    }
+                    if (extent != null && extent.Size > int.MaxValue)
+                    {
+                        throw new EsuException("Cannot read more than " + int.MaxValue + " bytes into a buffer.  Use ReadObjectStream instead.");
                     }
                     if( buffer != null ) {
                         output = buffer;
                     } else {
-                        output = new byte[(int)resp.ContentLength];
+                        if (contentLength != -1)
+                        {
+                            output = new byte[(int)resp.ContentLength];
+                        }
+                        else // (extent != null)
+                        {
+                            output = new byte[extent.Size];
+                        }
                     }
 
+                    int bytesToRead = 0;
+                    if (contentLength != -1)
+                    {
+                        bytesToRead = contentLength;
+                    }
+                    else
+                    {
+                        bytesToRead = (int)extent.Size;
+                    }
                     int c = 0;
-                    while( c < contentLength ) {
-                        int read = rs.Read( output, c, contentLength - c );
+                    while( c < bytesToRead ) {
+                        int read = rs.Read(output, c, bytesToRead - c);
                         if( read == 0 ) {
                             // EOF!
-                            throw new EsuException( "EOF reading response at position " + c + " size " + (contentLength - c) );
+                            throw new EsuException("EOF reading response at position " + c + " size " + (bytesToRead - c));
                         }
                         c += read;
                     }
