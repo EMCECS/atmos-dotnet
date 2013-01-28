@@ -23,12 +23,13 @@
 //      ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
 //      POSSIBILITY OF SUCH DAMAGE.
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using NUnit.Framework;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 
 namespace EsuApiLib {
@@ -36,7 +37,8 @@ namespace EsuApiLib {
     /// Implements testcase functionality that is common to all implementations
     /// of the EsuApi interface.
     /// </summary>
-    public class EsuApiTest {
+    [TestClass()]
+    public abstract class EsuApiTest {
         /// <summary>
         /// The EsuApi object used in the tests.
         /// </summary>
@@ -49,7 +51,7 @@ namespace EsuApiLib {
         /// Tear down after a test is run.  Cleans up objects that were created
         /// during the test.  Set cleanUp=false to disable this behavior.
         /// </summary>
-        [TearDown]
+        [TestCleanup()]
         public void tearDown() {
             foreach( Identifier cleanItem in cleanup ) {
                 try {
@@ -63,7 +65,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Sets up environment before testcases are run
         /// </summary>
-        [SetUp]
+        [TestInitialize()]
         public virtual void SetUp() {
             cleanup = new List<Identifier>();
         }
@@ -75,7 +77,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating one empty object.  No metadata, no content.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateEmptyObject() {
             ObjectId id = this.esu.CreateObject( null, null, null, null );
             Assert.IsNotNull( id, "null ID returned" );
@@ -90,7 +92,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating an object with content but without metadata
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateObjectWithContent() {
             ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "hello" ), "text/plain" );
             Assert.IsNotNull( id, "null ID returned" );
@@ -101,7 +103,7 @@ namespace EsuApiLib {
             Assert.AreEqual( "hello", content, "object content wrong" );
         }
 
-        [Test]
+        [TestMethod()]
         public void testCreateObjectFromStream()
         {
             MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
@@ -115,7 +117,7 @@ namespace EsuApiLib {
             Assert.AreEqual("hello", content, "object content wrong");
         }
 
-        [Test]
+        [TestMethod()]
         public void testCreateObjectFromStreamOnPath()
         {
             string dir = rand8char();
@@ -132,7 +134,7 @@ namespace EsuApiLib {
             Assert.AreEqual("hello", content, "object content wrong");
         }
 
-        [Test]
+        [TestMethod()]
         public void testCreateObjectUnicodePath()
         {
             string dir = rand8char();
@@ -148,7 +150,7 @@ namespace EsuApiLib {
             Assert.AreEqual("спасибо", content, "object content wrong");
         }
 
-        [Test]
+        [TestMethod()]
         public void testUpdateObjectFromStream()
         {
             MemoryStream ms = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
@@ -178,7 +180,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating an object with metadata but no content.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateObjectWithMetadata() {
             MetadataList mlist = new MetadataList();
             Metadata listable = new Metadata( "listable", "foo", true );
@@ -211,7 +213,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating an object with metadata including a nonbreaking space
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateObjectWithNBSP()
         {
             MetadataList mlist = new MetadataList();
@@ -239,7 +241,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating an object with metadata but no content.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateObjectWithMetadataNormalizeSpaces()
         {
             MetadataList mlist = new MetadataList();
@@ -275,7 +277,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test reading an object's content
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testReadObject() {
             ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "hello" ), "text/plain" );
             Assert.IsNotNull( id, "null ID returned" );
@@ -291,7 +293,7 @@ namespace EsuApiLib {
             Assert.AreEqual( "el", content, "partial object content wrong" );               
         }
 
-        [Test]
+        [TestMethod()]
         public void testReadObjectStream()
         {
             Acl acl = new Acl();
@@ -368,7 +370,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test reading an ACL back
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testReadAcl() {
             // Create an object with an ACL
             Acl acl = new Acl();
@@ -389,7 +391,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test reading back user metadata
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testGetUserMetadata() {
             // Create an object with user metadata
             MetadataList mlist = new MetadataList();
@@ -420,7 +422,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test deleting user metadata
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testDeleteUserMetadata() {
             // Create an object with metadata
             MetadataList mlist = new MetadataList();
@@ -454,7 +456,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test creating object versions
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testVersionObject()
         {
             // Create an object
@@ -490,7 +492,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing the versions of an object
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testListVersions()
         {
             // Create an object
@@ -526,7 +528,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing the system metadata on an object
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testGetSystemMetadata() {
             // Create an object
             MetadataList mlist = new MetadataList();
@@ -601,7 +603,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test replacing an object with an older version.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testRestoreVersion()
         {
             ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes("Base Version Content"), "text/plain");
@@ -627,7 +629,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing objects by a tag
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testListObjects()
         {
             // Create an object
@@ -665,7 +667,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing objects by a tag
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testListObjectsPaged()
         {
             // Create an object
@@ -714,7 +716,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing objects by a tag
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testListObjectsWithMetadata()
         {
             // Create an object
@@ -756,7 +758,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test fetching listable tags
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testGetListableTags() {
             // Create an object
             MetadataList mlist = new MetadataList();
@@ -789,7 +791,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test listing the user metadata tags on an object
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testListUserMetadataTags() {
             // Create an object
             MetadataList mlist = new MetadataList();
@@ -823,7 +825,7 @@ namespace EsuApiLib {
         ///// <summary>
         ///// Test executing a query.
         ///// </summary>
-        //[Test]
+        //[TestMethod()]
         //public void testQueryObjects() {
         //    // Create an object
         //    MetadataList mlist = new MetadataList();
@@ -853,7 +855,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Tests updating an object's metadata
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testUpdateObjectMetadata() {
             // Create an object
             MetadataList mlist = new MetadataList();
@@ -880,7 +882,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Tests updating an object's ACL.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testUpdateObjectAcl() {
             // Create an object with an ACL
             Acl acl = new Acl();
@@ -912,7 +914,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Tests updating an object's contents
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testUpdateObjectContent() {
             // Create an object
             ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "hello" ), "text/plain" );
@@ -931,7 +933,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test replacing an object's entire contents
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testReplaceObjectContent() {
             // Create an object
             ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "hello" ), "text/plain" );
@@ -949,7 +951,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test the UploadHelper's create method
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateHelper()
         {
             // use a blocksize of 1 to test multiple transfers.
@@ -973,7 +975,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test the UploadHelper's create method
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCreateHelperPath()
         {
             string dir = rand8char();
@@ -1002,7 +1004,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test the UploadHelper's update method
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testUpdateHelper()
         {
             // use a blocksize of 1 to test multiple transfers.
@@ -1030,7 +1032,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test the UploadHelper's update method
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testUpdateHelperPath()
         {
             string dir = rand8char();
@@ -1062,7 +1064,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Tests the download helper.  Tests both single and multiple requests.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testDownloadHelper()
         {
             // Create an object with content.
@@ -1095,7 +1097,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Tests the download helper.  Tests both single and multiple requests.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testDownloadHelperPath()
         {
 
@@ -1130,7 +1132,7 @@ namespace EsuApiLib {
             Assert.AreEqual("Four score and twenty years ago", data, "object content wrong");
         }
 
-        [Test]
+        [TestMethod()]
        	public void testListDirectory() {
 		    string dir = rand8char();
 		    string file = rand8char();
@@ -1164,7 +1166,7 @@ namespace EsuApiLib {
             Assert.IsTrue( directoryContains( dirList, dirPath2 ), "subdirectory not found in directory" );
 	    }
 
-        [Test]
+        [TestMethod()]
         public void testListDirectoryPaged()
         {
             string dir = rand8char();
@@ -1204,7 +1206,7 @@ namespace EsuApiLib {
             Assert.IsTrue(directoryContains(dirList, op2), "File2 not found in directory");
         }
 
-        [Test]
+        [TestMethod()]
         public void testListDirectoryWithMetadata()
         {
             // Create an object
@@ -1280,7 +1282,7 @@ namespace EsuApiLib {
 	     * This method tests various legal and illegal pathnames
 	     * @throws Exception
 	     */
-        [Test]
+        [TestMethod()]
 	    public void testPathNaming() {
 		    ObjectPath path = new ObjectPath( "/some/file" );
             Assert.IsFalse(path.IsDirectory(), "File should not be directory");
@@ -1305,7 +1307,7 @@ namespace EsuApiLib {
 	     * @param uid
 	     * @throws Exception
 	     */
-        [Test]
+        [TestMethod()]
 	    public void testGetAllMetadataByPath() {
     	    ObjectPath op = new ObjectPath( "/" + rand8char() + ".tmp" );
             // Create an object with an ACL
@@ -1343,7 +1345,7 @@ namespace EsuApiLib {
 
 	    }
     	
-        [Test]
+        [TestMethod()]
 	    public void testGetAllMetadataById() {
             // Create an object with an ACL
             Acl acl = new Acl();
@@ -1380,7 +1382,7 @@ namespace EsuApiLib {
         ///**
         // * Tests getting object replica information.
         // */
-        //[Test]
+        //[TestMethod()]
         //public void testGetObjectReplicaInfo() {
         //    ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes( "hello" ), "text/plain" );
         //    Assert.IsNotNull(id, "null ID returned");
@@ -1393,13 +1395,13 @@ namespace EsuApiLib {
         //    Debug.WriteLine( "Replica info: " + meta.GetMetadata( "user.maui.lso" ) );
         //}
 
-        [Test]
+        [TestMethod()]
         public void testGetShareableUrl()
         {
             // Create an object with content.
             string str = "Four score and twenty years ago";
             ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes(str), "text/plain");
-            Assert.NotNull(id, "null ID returned");
+            Assert.IsNotNull(id, "null ID returned");
             cleanup.Add(id);
 
             DateTime expiration = DateTime.UtcNow;
@@ -1417,33 +1419,36 @@ namespace EsuApiLib {
             Assert.AreEqual(str, content, "URL does not contain proper content");
         }
 
-        [Test]
+        [TestMethod()]
         public void testGetShareableUrlOnPath()
         {
             // Create an object with content.
             string str = "Four score and twenty years ago";
             ObjectPath op = new ObjectPath("/" + rand8char() + ".txt");
             ObjectId id = this.esu.CreateObjectOnPath(op, null, null, Encoding.UTF8.GetBytes(str), "text/plain");
-            Assert.NotNull(id, "null ID returned");
+            Assert.IsNotNull(id, "null ID returned");
             cleanup.Add(op);
 
             DateTime expiration = DateTime.UtcNow;
             expiration += TimeSpan.FromHours(5);
-            Uri u = esu.GetShareableUrl(id, expiration);
+            string disposition = "attachment; filename=\"no UTF support.txt\"; filename*=UTF-8''" + Uri.EscapeDataString("бöｼ.txt");
+            Uri u = esu.GetShareableUrl(id, expiration, disposition);
 
             Debug.WriteLine("Sharable URL: " + u);
 
             WebRequest wr = WebRequest.Create(u);
-            Stream s = wr.GetResponse().GetResponseStream();
+            WebResponse resp = wr.GetResponse();
+            Stream s = resp.GetResponseStream();
             StreamReader sr = new StreamReader(s);
             string content = sr.ReadToEnd();
             sr.Close();
             Debug.WriteLine("Content: " + content);
+            Assert.AreEqual(disposition, resp.Headers["Content-Disposition"]);
             Assert.AreEqual(str, content, "URL does not contain proper content");
         }
 
 
-        [Test]
+        [TestMethod()]
         public void testUploadDownload() {
             // Create a byte array to test
             int size=10*1024*1024;
@@ -1479,7 +1484,7 @@ namespace EsuApiLib {
         
         }
 
-        [Test]
+        [TestMethod()]
         public void testChecksums()
         {
             // Create a byte array to test
@@ -1518,7 +1523,7 @@ namespace EsuApiLib {
             }
         }
 
-        [Test]
+        [TestMethod()]
         public void testAppendChecksum()
         {
             Checksum ck = new Checksum(Checksum.Algorithm.SHA0);
@@ -1533,7 +1538,7 @@ namespace EsuApiLib {
         /// <summary>
         /// Test renaming files
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testRename()
         {
             ObjectPath op1 = new ObjectPath("/" + rand8char() + ".tmp");
@@ -1571,16 +1576,16 @@ namespace EsuApiLib {
             Assert.AreEqual("Four score and seven years ago", content, "object content wrong (3)");
         }
 
-        [Test]
+        [TestMethod()]
         public void testGetServiceInformation()
         {
             ServiceInformation si = this.esu.GetServiceInformation();
 
-            Assert.NotNull(si.AtmosVersion);
+            Assert.IsNotNull(si.AtmosVersion);
             Debug.WriteLine("Atmos " + si.AtmosVersion);
         }
 
-        [Test]
+        [TestMethod()]
 	    public void testCreateChecksum() {
 		    Checksum ck = new Checksum( EsuApiLib.Checksum.Algorithm.SHA0 );
             ObjectId id = this.esu.CreateObject( null, null, Encoding.UTF8.GetBytes("hello"), "text/plain", ck );
@@ -1588,7 +1593,7 @@ namespace EsuApiLib {
 		    cleanup.Add( id );
 	    }
 
-        [Test]
+        [TestMethod()]
         public void testReadChecksum()
         {
             Checksum ck = new Checksum(EsuApiLib.Checksum.Algorithm.SHA0);
@@ -1603,7 +1608,7 @@ namespace EsuApiLib {
 
         }
 
-        [Test]
+        [TestMethod()]
         public void testGetObjectInfo()
         {
             MetadataList mlist = new MetadataList();
@@ -1618,14 +1623,14 @@ namespace EsuApiLib {
             Assert.AreEqual("hello", content, "object content wrong");
 
             ObjectInfo info = this.esu.GetObjectInfo(id);
-            Assert.NotNull(info, "ObjectInfo null");
-            Assert.NotNull(info.ObjectID, "ObjectId null");
-            Assert.NotNull(info.RawXml, "Raw XML null");
-            Assert.NotNull(info.Replicas, "Replicas is null");
-            Assert.True(info.Replicas.Count > 0, "Zero replicas found");
-            Assert.NotNull(info.Retention, "No retention information");
-            Assert.NotNull(info.Expiration, "Expiration null");
-            Assert.NotNull(info.Selection, "Selection null");
+            Assert.IsNotNull(info, "ObjectInfo null");
+            Assert.IsNotNull(info.ObjectID, "ObjectId null");
+            Assert.IsNotNull(info.RawXml, "Raw XML null");
+            Assert.IsNotNull(info.Replicas, "Replicas is null");
+            Assert.IsTrue(info.Replicas.Count > 0, "Zero replicas found");
+            Assert.IsNotNull(info.Retention, "No retention information");
+            Assert.IsNotNull(info.Expiration, "Expiration null");
+            Assert.IsNotNull(info.Selection, "Selection null");
 
             Debug.WriteLine("Expires: " + info.Expiration.EndAt);
             Debug.WriteLine("Retention ends: " + info.Retention.EndAt);
@@ -1639,5 +1644,250 @@ namespace EsuApiLib {
             return sb.ToString();
         }
 
+        [TestMethod()]
+        public void testObjectKeyCRUD()
+        {
+            ObjectKey key = new ObjectKey("Test_key-pool#@!$%^..", "KEY_TEST");
+            try
+            {
+                string content = "Hello World!";
+                byte[] data = Encoding.UTF8.GetBytes(content);
+
+                ObjectId oid = this.esu.CreateObjectWithKey(key, null, null, data, "text/plain");
+
+                Assert.IsNotNull(oid, "Null object ID returned");
+
+                string readContent = Encoding.UTF8.GetString(this.esu.ReadObject(key, null, null));
+                Assert.AreEqual(content, readContent, "content mismatch");
+
+                content = "Hello Waldo!";
+                data = Encoding.UTF8.GetBytes(content);
+                this.esu.UpdateObject(key, null, null, null, data, null);
+
+                readContent = Encoding.UTF8.GetString(this.esu.ReadObject(key, null, null));
+                Assert.AreEqual(content, readContent, "content mismatch");
+
+            }
+            finally
+            {
+                this.esu.DeleteObject(key);
+            }
+
+            try
+            {
+                this.esu.ReadObject(key, null, null);
+                Assert.Fail("Object still exists");
+            }
+            catch (EsuException e)
+            {
+                if (e.Code != 1003) throw e;
+            }
+        }
+
+        [TestMethod()]
+        public void testKeysOther()
+        {
+            ObjectKey key = new ObjectKey("Test_key-pool#@!$%^..", "KEY_TEST2");
+            string content = "Key tests!";
+            byte[] data = Encoding.UTF8.GetBytes(content);
+
+            ObjectId oid = this.esu.CreateObjectWithKey(key, null, null, data, "text/plain");
+            cleanup.Add(oid);
+
+            // test getting stuff
+            Acl acl = this.esu.GetAcl(key);
+            Assert.IsNotNull(acl, "ACL is null");
+            ObjectMetadata objectMeta = this.esu.GetAllMetadata(key);
+            Assert.IsTrue(objectMeta.Metadata.Count() > 0, "Object metadata is null");
+            ObjectInfo info = this.esu.GetObjectInfo(key);
+            Assert.IsNotNull(info.ObjectID, "GetObjectInfo object ID is null");
+            Assert.IsTrue(this.esu.GetSystemMetadata(key, null).Count() > 0, "System Metadata is empty");
+            Assert.IsTrue(this.esu.GetUserMetadata(key, null).Count() == 0, "User Metadata is not empty");
+
+            // test setting stuff
+            foreach (Grant grant in acl) {
+                if (grant.Grantee.Name == "other")
+                {
+                    grant.Permission = Permission.READ;
+                    break;
+                }
+            }
+            this.esu.SetAcl(key, acl);
+            Assert.AreEqual(acl, this.esu.GetAcl(key), "ACL is different");
+            MetadataList mList = new MetadataList();
+            mList.AddMetadata(new Metadata("foo", "bar", false));
+            mList.AddMetadata(new Metadata("listable", "", true));
+            this.esu.SetUserMetadata(key, mList);
+            MetadataList readList = this.esu.GetUserMetadata(key, null);
+            Assert.AreEqual(mList.ToString(), readList.ToString(), "User meta is different");
+        }
+
+        [TestMethod()]
+        public void testReadAccessToken()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+            string data = "hello";
+            ObjectId id = esu.CreateObjectOnPath(op, null, null, Encoding.UTF8.GetBytes(data), "text/plain");
+
+            DateTime expiration = DateTime.UtcNow;
+            expiration += TimeSpan.FromMinutes(5);
+
+            SourceType source = new SourceType();
+            source.Allow = new string[] {"10.0.0.0/8", "128.0.0.0/8"};
+            source.Disallow = new string[] {"1.1.1.1"};
+
+            ContentLengthRangeType range = new ContentLengthRangeType();
+            range.From = 0;
+            range.To = 1024; // 1KB
+
+            FormFieldType formField1 = new FormFieldType();
+            formField1.Name = "x-emc-meta";
+            formField1.Optional = true;
+            FormFieldType formField2 = new FormFieldType();
+            formField2.Name = "x-emc-listable-meta";
+            formField2.Optional = true;
+
+            PolicyType policy = new PolicyType();
+            policy.Expiration = expiration;
+            policy.Source = source;
+            policy.MaxDownloads = 2;
+            policy.MaxUploads = 0;
+            policy.ContentLengthRange = range;
+            policy.FormField = new FormFieldType[] {formField1, formField2};
+
+            Uri tokenUri = esu.CreateAccessToken(id, policy, null);
+
+            WebResponse response = WebRequest.Create(tokenUri).GetResponse();
+            string content = new StreamReader(response.GetResponseStream()).ReadToEnd();
+            response.Close();
+            Assert.AreEqual(data, content, "Token URL does not contain proper content");
+
+            esu.DeleteAccessToken(tokenUri);
+
+            tokenUri = esu.CreateAccessToken(op, policy, null);
+
+            response = WebRequest.Create(tokenUri).GetResponse();
+            content = new StreamReader(response.GetResponseStream()).ReadToEnd();
+            response.Close();
+            Assert.AreEqual(data, content, "Token URL does not contain proper content");
+
+            policy.MaxDownloads = policy.MaxDownloads - 1; // we already used one
+
+            ListOptions options = new ListOptions();
+            List<AccessTokenType> tokens = esu.ListAccessTokens(options);
+            Assert.AreEqual(1, tokens.Count, "ListTokens returns wrong count");
+            AssertTokenPolicy(tokens[0], policy);
+
+            AccessTokenType token = esu.GetAccessToken(tokenUri);
+
+            esu.DeleteAccessToken(token.AccessTokenId);
+
+            string path = tokenUri.GetComponents(UriComponents.Path, UriFormat.Unescaped);
+            Assert.AreEqual(path.Split('/').Last(), token.AccessTokenId, "token ID doesn't match");
+            AssertTokenPolicy(token, policy);
+        }
+
+        [TestMethod()]
+        public void testWriteAccessToken()
+        {
+            string dir = rand8char();
+            string file = rand8char();
+            ObjectPath op = new ObjectPath("/" + dir + "/" + file);
+            esu.CreateObjectOnPath(new ObjectPath("/" + dir + "/"), null, null, null, null);
+
+            DateTime expiration = DateTime.UtcNow;
+            expiration += TimeSpan.FromMinutes(5);
+
+            SourceType source = new SourceType();
+            source.Allow = new string[] { "10.0.0.0/8", "128.0.0.0/8" };
+            source.Disallow = new string[] { "1.1.1.1" };
+
+            ContentLengthRangeType range = new ContentLengthRangeType();
+            range.From = 0;
+            range.To = 1024; // 1KB
+
+            FormFieldType formField1 = new FormFieldType();
+            formField1.Name = "x-emc-meta";
+            formField1.Optional = true;
+            FormFieldType formField2 = new FormFieldType();
+            formField2.Name = "x-emc-listable-meta";
+            formField2.Optional = true;
+
+            PolicyType policy = new PolicyType();
+            policy.Expiration = expiration;
+            policy.Source = source;
+            policy.MaxDownloads = 2;
+            policy.MaxUploads = 1;
+            policy.ContentLengthRange = range;
+            policy.FormField = new FormFieldType[] { formField1, formField2 };
+
+            Uri tokenUri = esu.CreateAccessToken(op, policy, null);
+
+            // create upload form manually (easiest since we're using HttpWebRequest)
+            string content = "Form Upload Test";
+            string boundary = "BOUNDARY_1234567890";
+            string EOL = "\r\n";
+            string payload = "--" + boundary + EOL;
+            payload += "Content-Type: text/plain" + EOL;
+            payload += "Content-Disposition: form-data; name=\"x-emc-meta\"" + EOL + EOL;
+            payload += "color=gray,size=3,foo=bar";
+            payload += EOL + "--" + boundary + EOL;
+            payload += "Content-Type: text/plain" + EOL;
+            payload += "Content-Disposition: form-data; name=\"x-emc-listable-meta\"" + EOL + EOL;
+            payload += "listable=";
+            payload += EOL + "--" + boundary + EOL;
+            payload += "Content-Type: text/plain" + EOL;
+            payload += "Content-Disposition: form-data; name=\"data\"; filename=\"foo.txt\"" + EOL + EOL;
+            payload += content;
+            payload += EOL + "--" + boundary + "--" + EOL;
+
+            WebRequest request = WebRequest.Create(tokenUri);
+            request.Method = "POST";
+            request.ContentType = "multipart/form-data; boundary=" + boundary;
+            new MemoryStream(Encoding.UTF8.GetBytes(payload)).CopyTo(request.GetRequestStream());
+            WebResponse response = request.GetResponse();
+            Assert.AreEqual(201, (int) (response as HttpWebResponse).StatusCode, "Wrong status code");
+            string path = response.Headers["Location"];
+            ObjectId oid = new ObjectId(path.Split('/').Last());
+            cleanup.Add(oid);
+            response.Close();
+
+            // read back object via token
+            response = WebRequest.Create(tokenUri).GetResponse();
+            Assert.AreEqual(content, new StreamReader(response.GetResponseStream()).ReadToEnd(), "content from token not equal");
+            response.Close();
+
+            // read back object via namespace
+            Assert.AreEqual(content, Encoding.UTF8.GetString(esu.ReadObject(op, null, null)), "content from namespace not equal");
+
+            esu.DeleteAccessToken(tokenUri);
+        }
+
+        private void AssertTokenPolicy(AccessTokenType token, PolicyType policy)
+        {
+            if (token.ContentLengthRange != null)
+            {
+                Assert.AreEqual(policy.ContentLengthRange.From, token.ContentLengthRange.From, "policy differs");
+                Assert.AreEqual(policy.ContentLengthRange.To, token.ContentLengthRange.To, "policy differs");
+            }
+            Assert.AreEqual(policy.Expiration, token.Expiration, "policy differs");
+            Assert.AreEqual(policy.MaxDownloads, token.MaxDownloads, "policy differs");
+            Assert.AreEqual(policy.MaxUploads, token.MaxUploads, "policy differs");
+            if (policy.Source != null)
+            {
+                Assert.IsTrue(policy.Source.Allow.SequenceEqual(token.Source.Allow), "policy differs");
+                Assert.IsTrue(policy.Source.Disallow.SequenceEqual(token.Source.Disallow), "policy differs");
+            }
+            if (token.FormField != null)
+            {
+                for (int i = 0; i < token.FormField.Length; i++)
+                {
+                    Assert.AreEqual(policy.FormField[i].Name, token.FormField[i].Name, "policy differs");
+                    Assert.AreEqual(policy.FormField[i].Optional, token.FormField[i].Optional, "policy differs");
+                }
+            }
+        }
     }
 }

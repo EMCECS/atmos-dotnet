@@ -28,12 +28,14 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 
-namespace EsuApiLib {
+namespace EsuApiLib
+{
     /// <summary>
     /// This interface defines the basic operations available through the ESU web
     /// services.
     /// </summary>
-    public interface EsuApi {
+    public interface EsuApi
+    {
         /// <summary>
         /// Creates a new object in the cloud.
         /// </summary>
@@ -165,6 +167,69 @@ namespace EsuApiLib {
                 Acl acl, MetadataList metadata,
                 ArraySegment<byte> data, String mimeType, Checksum checksum);
 
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectWithKey(ObjectKey key, Acl acl, MetadataList metadata, byte[] data,
+                String mimeType);
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectWithKey(ObjectKey key, Acl acl, MetadataList metadata, byte[] data,
+                String mimeType, Checksum checksum);
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectFromSegmentWithKey(ObjectKey key, Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, String mimeType);
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectFromSegmentWithKey(ObjectKey key, Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, String mimeType, Checksum checksum);
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we will read only 'streamLength' bytes from the stream and do not close it</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual number of bytes in the stream.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        ObjectId CreateObjectFromStreamWithKey(ObjectKey key, Acl acl, MetadataList metadata,
+                Stream data, long streamLength, String mimeType, Checksum checksum);
 
         /// <summary>
         /// Updates an object in the cloud.
@@ -236,7 +301,7 @@ namespace EsuApiLib {
         /// <param name="id">the identifier of the object whose user metadata to fetch.</param>
         /// <param name="tags">A list of user metadata tags to fetch.  Optional.  If null, all user metadata will be fetched.</param>
         /// <returns>The list of user metadata for the object.</returns>
-        MetadataList GetUserMetadata( Identifier id, MetadataTags tags );
+        MetadataList GetUserMetadata(Identifier id, MetadataTags tags);
 
         /// <summary>
         /// Fetches the system metadata for the object.
@@ -244,7 +309,7 @@ namespace EsuApiLib {
         /// <param name="id">the identifier of the object whose system metadata to fetch.</param>
         /// <param name="tags">A list of system metadata tags to fetch.  Optional.  If null, all metadata will be fetched.</param>
         /// <returns>The list of system metadata for the object.</returns>
-        MetadataList GetSystemMetadata( Identifier id, MetadataTags tags );
+        MetadataList GetSystemMetadata(Identifier id, MetadataTags tags);
 
         /// <summary>
         /// Reads an object's content.
@@ -281,49 +346,49 @@ namespace EsuApiLib {
         /// Deletes an object from the cloud.
         /// </summary>
         /// <param name="id">The identifier of the object to delete.</param>
-        void DeleteObject( Identifier id );
+        void DeleteObject(Identifier id);
 
         /// <summary>
         /// Returns an object's ACL
         /// </summary>
         /// <param name="id">The identifier of the object whose ACL to read</param>
         /// <returns>The object's ACL</returns>
-        Acl GetAcl( Identifier id );
+        Acl GetAcl(Identifier id);
 
         /// <summary>
         /// Sets the access control list on the object.
         /// </summary>
         /// <param name="id">The identifier of the object whose ACL to change</param>
         /// <param name="acl">The new ACL for the object.</param>
-        void SetAcl( Identifier id, Acl acl );
+        void SetAcl(Identifier id, Acl acl);
 
         /// <summary>
         /// Writes the metadata into the object. If the tag does not exist, it is created and set to the corresponding value. If the tag exists, the existing value is replaced. 
         /// </summary>
         /// <param name="id">The identifier of the object to update</param>
         /// <param name="metadata">Metadata to write to the object.</param>
-        void SetUserMetadata( Identifier id, MetadataList metadata );
+        void SetUserMetadata(Identifier id, MetadataList metadata);
 
         /// <summary>
         /// Deletes metadata items from an object.
         /// </summary>
         /// <param name="id">The identifier of the object whose metadata to delete.</param>
         /// <param name="tags">The list of metadata tags to delete.</param>
-        void DeleteUserMetadata( Identifier id, MetadataTags tags );
+        void DeleteUserMetadata(Identifier id, MetadataTags tags);
 
         /// <summary>
         /// Lists the versions of an object.
         /// </summary>
         /// <param name="id">The object whose versions to list.</param>
         /// <returns>The list of versions of the object.  If the object does not have any versions, the array will be empty.</returns>
-        List<ObjectId> ListVersions( Identifier id );
+        List<ObjectId> ListVersions(Identifier id);
 
         /// <summary>
         /// Creates a new immutable version of an object.
         /// </summary>
         /// <param name="id">The object to version</param>
         /// <returns>The id of the newly created version</returns>
-        ObjectId VersionObject( Identifier id );
+        ObjectId VersionObject(Identifier id);
 
         /// <summary>
         /// Lists all objects with the given tag.
@@ -386,14 +451,14 @@ namespace EsuApiLib {
         /// </summary>
         /// <param name="tag">The tag whose children to list.  If null, only toplevel tags will be returned.</param>
         /// <returns>The list of listable tags.</returns>
-        MetadataTags GetListableTags( MetadataTag tag );
+        MetadataTags GetListableTags(MetadataTag tag);
 
         /// <summary>
         /// Returns the set of listable tags for the current Tennant.
         /// </summary>
         /// <param name="tag">The tag whose children to list.  If null, only toplevel tags will be returned.</param>
         /// <returns>The list of listable tags.</returns>
-        MetadataTags GetListableTags( string tag );
+        MetadataTags GetListableTags(string tag);
 
 
         /// <summary>
@@ -401,7 +466,7 @@ namespace EsuApiLib {
         /// </summary>
         /// <param name="id">The object whose metadata tags to list</param>
         /// <returns>The list of user metadata tags assigned to the object</returns>
-        MetadataTags ListUserMetadataTags( Identifier id );
+        MetadataTags ListUserMetadataTags(Identifier id);
 
         ///// <summary>
         ///// Executes a query for objects matching the specified XQuery string.
@@ -462,6 +527,15 @@ namespace EsuApiLib {
         Uri GetShareableUrl(Identifier id, DateTime expiration);
 
         /// <summary>
+        /// Creates a shareable URL with the specified content-disposition.  This disposition value will be returned in the Content-Disposition response header.
+        /// </summary>
+        /// <param name="id">the object to generate the URL for</param>
+        /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure to ensure your expiration is in UTC (DateTimeKind.Utc)</param>
+        /// <param name="disposition">the value that will be sent by the server in the Content-Disposition response header</param>
+        /// <returns>a URL that can be used to share the object's content</returns>
+        Uri GetShareableUrl(Identifier id, DateTime expiration, string disposition);
+
+        /// <summary>
         /// Gets the UID used for this object's connections.
         /// </summary>
         /// <returns>The connection's UID</returns>
@@ -520,5 +594,48 @@ namespace EsuApiLib {
         /// <returns></returns>
         ObjectInfo GetObjectInfo(Identifier id);
 
+        /// <summary>
+        /// Creates an anonymous access token using the specified policy and ACL
+        /// </summary>
+        /// <param name="id">identifier of the target object for the access token.</param>
+        /// <param name="policy">the token policy for the new access token.</param>
+        /// <param name="acl">the ACL that will be assigned to objects created using this access token.</param>
+        /// <returns>The URL of the access token.</returns>
+        Uri CreateAccessToken( Identifier id, PolicyType policy, Acl acl );
+
+        /// <summary>
+        /// Retrieves details about the specified access token. Implementation simply extracts the token ID from the URL and calls GetAccessToken(String).
+        /// </summary>
+        /// <param name="tokenUri">The URL of the access token.</param>
+        /// <returns></returns>
+        AccessTokenType GetAccessToken( Uri tokenUri );
+
+        /// <summary>
+        /// Retrieves details about the specified access token.
+        /// </summary>
+        /// <param name="accessTokenId">The ID of the access token.</param>
+        /// <returns></returns>
+        AccessTokenType GetAccessToken( String accessTokenId );
+
+        /// <summary>
+        /// Deletes the specified access token. Implementation simply extracts the token ID from the URL and calls deleteAccessToken(String).
+        /// </summary>
+        /// <param name="tokenUri">The URL of the access token.</param>
+        void DeleteAccessToken(Uri tokenUri);
+
+        /// <summary>
+        /// Deletes the specified access token.
+        /// </summary>
+        /// <param name="accessTokenId">The ID of the access token.</param>
+        void DeleteAccessToken( String accessTokenId );
+
+        /// <summary>
+        /// Lists all access tokens owned by the user using the options provided.
+        /// </summary>
+        /// <param name="options">Options for listing the objects. After calling 
+        /// ListAccessTokens, be sure to check the value of the token property to see 
+        /// if there are additional results.</param>
+        /// <returns>The list of access tokens that the user has created</returns>
+        List<AccessTokenType> ListAccessTokens( ListOptions options );
     }
 }

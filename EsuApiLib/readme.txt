@@ -1,8 +1,8 @@
 Requirements
 ------------
 
- * .NET 2.0 or higher
- * NUnit 2.4.8 (http://nunit.org/index.php?p=download) 
+ * .NET 3.5 or higher
+ * Visual Studio 2010 or higher
    - Only required for building or running unit tests
  * Sandcastle Help File Builder (http://www.codeplex.com/SHFB)
    - Only required for building help

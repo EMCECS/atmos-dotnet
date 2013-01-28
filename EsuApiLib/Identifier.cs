@@ -30,10 +30,10 @@ using System.Text;
 
 namespace EsuApiLib {
     /// <summary>
-    /// This is the base identifier class for the two types of
-    /// identifiers: ObjectId and ObjectPath.  It is used where
-    /// either type is acceptable.
+    /// This is the base identifier class for all types of
+    /// identifiers: ObjectId, ObjectPath and ObjectKey.  It is used where
+    /// any identifier type is acceptable.
     /// </summary>
-    public class Identifier {
+    public interface Identifier {
     }
 }

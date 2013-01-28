@@ -34,6 +34,7 @@ using System.Security.Cryptography;
 using System.Reflection;
 using System.Xml;
 using System.Linq;
+using System.Xml.Serialization;
 
 namespace EsuApiLib.Rest {
     /// <summary>
@@ -844,7 +845,315 @@ namespace EsuApiLib.Rest {
             return null;
         }
 
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectWithKey(ObjectKey key, Acl acl, MetadataList metadata, byte[] data,
+                String mimeType)
+        {
+            return CreateObjectFromSegmentWithKey(key, acl, metadata, new ArraySegment<byte>(data, 0, data.Length), mimeType);
+        }
 
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectWithKey(ObjectKey key, Acl acl, MetadataList metadata, byte[] data,
+                String mimeType, Checksum checksum)
+        {
+            return CreateObjectFromSegmentWithKey(key, acl, metadata, new ArraySegment<byte>(data, 0, data.Length), mimeType, checksum);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectFromSegmentWithKey(ObjectKey key, Acl acl, MetadataList metadata,
+                ArraySegment<byte> data, String mimeType)
+        {
+            return CreateObjectFromSegmentWithKey(key, acl, metadata, data, mimeType, null);
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  May be appended to later.  May be null to create an object with no content or a directory.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectFromSegmentWithKey(ObjectKey key, Acl acl, MetadataList metadata, ArraySegment<byte> data,
+                String mimeType, Checksum checksum)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, key);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                // Figure out the mimetype
+                if (mimeType == null)
+                {
+                    mimeType = "application/octet-stream";
+                }
+
+                headers.Add("Content-Type", mimeType);
+                headers.Add("x-emc-uid", uid);
+                headers.Add("x-emc-pool", key.pool);
+
+                // Process metadata
+                if (metadata != null)
+                {
+                    processMetadata(metadata, headers);
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                addDateHeader(headers);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    checksum.Update(data);
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                // post data
+                Stream s = null;
+                try
+                {
+                    con.ContentLength = data.Count;
+                    con.SendChunked = false;
+                    s = con.GetRequestStream();
+                    s.Write(data.Array, data.Offset, data.Count);
+                    s.Close();
+                }
+                catch (IOException e)
+                {
+                    s.Close();
+                    throw new EsuException("Error posting data", e);
+                }
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // The new object ID is returned in the location response header
+                string location = resp.Headers["location"];
+
+                // Parse the value out of the URL
+
+                MatchCollection m = OBJECTID_EXTRACTOR.Matches(location);
+                if (m.Count > 0)
+                {
+                    string id = m[0].Groups[1].Value;
+                    log.TraceEvent(TraceEventType.Verbose, 0, "Id: " + id);
+                    return new ObjectId(id);
+                }
+                else
+                {
+                    throw new EsuException("Could not find ObjectId in " + location);
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Creates a new object in the cloud with the given key (and key-pool).
+        /// </summary>
+        /// <param name="key">the key-pool and key to use for the new object.</param>
+        /// <param name="acl">Access control list for the new object.  May be null to use a default ACL</param>
+        /// <param name="metadata">Metadata for the new object.  May be null for no metadata.</param>
+        /// <param name="data">The initial contents of the object.  Note that we will read only 'streamLength' bytes from the stream and do not close it</param>
+        /// <param name="streamLength">The number of bytes to read from the stream.  Must be &lt;= the actual number of bytes in the stream.</param>
+        /// <param name="mimeType">the MIME type of the content.  Optional, may be null.  If data is non-null and mimeType is null, the MIME type will default to application/octet-stream.</param>
+        /// <param name="checksum">the checksum object to use to compute checksums.  If you're doing incremental updates after the create, include the same object in subsequent calls.  Can be null to omit checksums.</param>
+        /// <returns>the ObjectId of the newly-created object for references by ID.</returns>
+        public ObjectId CreateObjectFromStreamWithKey(ObjectKey key, Acl acl, MetadataList metadata, Stream data, long streamLength, string mimeType, Checksum checksum)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, key);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                // Figure out the mimetype
+                if (mimeType == null)
+                {
+                    mimeType = "application/octet-stream";
+                }
+
+                headers.Add("Content-Type", mimeType);
+                headers.Add("x-emc-uid", uid);
+                headers.Add("x-emc-pool", key.pool);
+
+                // Process metadata
+                if (metadata != null)
+                {
+                    processMetadata(metadata, headers);
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                addDateHeader(headers);
+
+                // Checksum if required
+                if (checksum != null)
+                {
+                    if (!data.CanSeek)
+                    {
+                        throw new EsuException("Cannot checksum a stream that does not support seeking");
+                    }
+                    long current = data.Position;
+                    byte[] buffer = new byte[64 * 1024];
+                    for (long i = 0; i < streamLength; i += buffer.Length)
+                    {
+                        if (i + buffer.Length > streamLength)
+                        {
+                            int bytesToRead = (int)(streamLength - i);
+                            int count = data.Read(buffer, 0, bytesToRead);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                        else
+                        {
+                            int count = data.Read(buffer, 0, buffer.Length);
+                            checksum.Update(new ArraySegment<byte>(buffer, 0, count));
+                        }
+                    }
+                    data.Seek(current, SeekOrigin.Begin);
+
+                    //Checksum ckcopy = checksum.Clone();
+                    headers.Add("x-emc-wschecksum", checksum.ToString());
+                }
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                writeRequestBodyFromStream(con, data, streamLength);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // The new object ID is returned in the location response header
+                string location = resp.Headers["location"];
+
+                // Parse the value out of the URL
+
+                MatchCollection m = OBJECTID_EXTRACTOR.Matches(location);
+                if (m.Count > 0)
+                {
+                    string id = m[0].Groups[1].Value;
+                    log.TraceEvent(TraceEventType.Verbose, 0, "Id: " + id);
+                    return new ObjectId(id);
+                }
+                else
+                {
+                    throw new EsuException("Could not find ObjectId in " + location);
+                }
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
 
         /// <summary>
         /// Updates an object in the cloud.
@@ -919,6 +1228,9 @@ namespace EsuApiLib.Rest {
 
                 headers.Add( "Content-Type", mimeType );
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add( "x-emc-pool", (id as ObjectKey).pool );
+                }
 
                 //Add extent if needed
                 if( extent != null && !extent.Equals( Extent.ALL_CONTENT ) ) {
@@ -1020,6 +1332,9 @@ namespace EsuApiLib.Rest {
 
                 headers.Add("Content-Type", mimeType);
                 headers.Add("x-emc-uid", uid);
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 //Add extent if needed
                 if (extent != null && !extent.Equals(Extent.ALL_CONTENT))
@@ -1135,6 +1450,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add tags if needed
                 if( tags != null ) {
@@ -1202,6 +1520,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add tags if needed
                 if( tags != null ) {
@@ -1271,6 +1592,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 //Add extent if needed
                 if (extent != null && !extent.Equals(Extent.ALL_CONTENT))
@@ -1378,6 +1702,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 //Add extent if needed
                 if( extent != null && !extent.Equals( Extent.ALL_CONTENT ) ) {
@@ -1462,6 +1789,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -1514,6 +1844,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -1575,6 +1908,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add acl
                 if( acl != null ) {
@@ -1632,6 +1968,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Process metadata
                 if( metadata != null ) {
@@ -1692,6 +2031,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add tags if needed
                 processTags( tags, headers );
@@ -1748,7 +2090,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
-
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -1810,6 +2154,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -2338,6 +2685,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -2599,6 +2949,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                 // Add date
                 addDateHeader(headers);
@@ -2669,7 +3022,6 @@ namespace EsuApiLib.Rest {
             return GetShareableUrl(id, expiration);
         }
 
-
         /// <summary>
         /// An Atmos user (UID) can construct a pre-authenticated URL to an 
         /// object, which may then be used by anyone to retrieve the 
@@ -2680,7 +3032,21 @@ namespace EsuApiLib.Rest {
         /// <param name="id">the object to generate the URL for</param>
         /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure to ensure your expiration is in UTC (DateTimeKind.Utc)</param>
         /// <returns>a URL that can be used to share the object's content</returns>
-        public Uri GetShareableUrl(Identifier id, DateTime expiration) {
+        public Uri GetShareableUrl(Identifier id, DateTime expiration)
+        {
+            return GetShareableUrl(id, expiration, null);
+        }
+
+        /// <summary>
+        /// Creates a shareable URL with the specified content-disposition.  This disposition value will be returned in the Content-Disposition response header.
+        /// </summary>
+        /// <param name="id">the object to generate the URL for</param>
+        /// <param name="expiration">expiration the expiration date of the URL.  Note, be sure to ensure your expiration is in UTC (DateTimeKind.Utc)</param>
+        /// <param name="disposition">the value that will be sent by the server in the Content-Disposition response header</param>
+        /// <returns>a URL that can be used to share the object's content</returns>
+        public Uri GetShareableUrl(Identifier id, DateTime expiration, string disposition) {
+            if (id is ObjectKey) throw new Exception("You cannot create a shareable URL with an object key");
+
             string resource = getResourcePath(context, id);
             string uidEnc = Uri.EscapeDataString(uid);
             string unixTime = (expiration - new DateTime(1970,1,1,0,0,0,DateTimeKind.Utc)).TotalSeconds.ToString( "F0" );
@@ -2692,9 +3058,18 @@ namespace EsuApiLib.Rest {
 
             sb.Append("" + unixTime);
 
+            if (disposition != null)
+            {
+                sb.Append("\n" + disposition);
+            }
+
             string signature = Uri.EscapeDataString(sign(Encoding.UTF8.GetBytes(sb.ToString())));
             resource += "?uid=" + uidEnc + "&expires=" + unixTime +
                 "&signature=" + signature;
+            if (disposition != null)
+            {
+                resource += "&disposition=" + Uri.EscapeDataString(disposition);
+            }
 
             Uri u = buildUrl(resource);
 
@@ -2866,6 +3241,9 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (id is ObjectKey) {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
 
                  // Add date
                 addDateHeader(headers);
@@ -2942,6 +3320,355 @@ namespace EsuApiLib.Rest {
         /// <returns>The port number</returns>
         public int GetPort() {
             return port;
+        }
+
+        /// <summary>
+        /// Creates an anonymous access token using the specified policy and ACL
+        /// </summary>
+        /// <param name="id">identifier of the target object for the access token.</param>
+        /// <param name="policy">the token policy for the new access token.</param>
+        /// <param name="acl">the ACL that will be assigned to objects created using this access token.</param>
+        /// <returns>The URL of the access token.</returns>
+        public Uri CreateAccessToken(Identifier id, PolicyType policy, Acl acl)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/accesstokens";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("Content-Type", "application/xml");
+                headers.Add("x-emc-uid", uid);
+
+                // Add id
+                if (id != null)
+                {
+                    if (id is ObjectId) headers.Add("x-emc-objectid", id.ToString());
+                    else if (id is ObjectPath) headers.Add("x-emc-path", id.ToString());
+                    else throw new EsuException("Only object ID and path are supported with access tokens");
+                }
+
+                // Add acl
+                if (acl != null)
+                {
+                    processAcl(acl, headers);
+                }
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "POST", resource, headers);
+
+                // serialize XML
+                Stream memStream = new MemoryStream();
+                XmlSerializer serializer = new XmlSerializer(typeof(PolicyType));
+                serializer.Serialize(memStream, policy);
+                memStream.Position = 0;
+
+                // post data
+                writeRequestBodyFromStream(con, memStream, memStream.Length);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // The token URL is returned in the location response header
+                string location = resp.Headers["location"];
+
+                return buildUrl(location);
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Retrieves details about the specified access token. Implementation simply extracts the token ID from the URL and calls GetAccessToken(String).
+        /// </summary>
+        /// <param name="tokenUri">The URL of the access token.</param>
+        /// <returns></returns>
+        public AccessTokenType GetAccessToken(Uri tokenUri)
+        {
+            string path = tokenUri.GetComponents(UriComponents.Path, UriFormat.Unescaped);
+            return GetAccessToken(path.Split('/').Last());
+        }
+
+        /// <summary>
+        /// Retrieves details about the specified access token.
+        /// </summary>
+        /// <param name="tokenId">The ID of the access token.</param>
+        /// <returns></returns>
+        public AccessTokenType GetAccessToken(string tokenId)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/accesstokens/" + tokenId + "?info";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                XmlSerializer serializer = new XmlSerializer(typeof(AccessTokenType));
+                AccessTokenType accessToken = (AccessTokenType) serializer.Deserialize(resp.GetResponseStream());
+                resp.Close();
+
+                return accessToken;
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Deletes the specified access token. Implementation simply extracts the token ID from the URL and calls deleteAccessToken(String).
+        /// </summary>
+        /// <param name="tokenUri">The URL of the access token.</param>
+        public void DeleteAccessToken(Uri tokenUri)
+        {
+            string path = tokenUri.GetComponents(UriComponents.Path, UriFormat.Unescaped);
+            DeleteAccessToken(path.Split('/').Last());
+        }
+
+        /// <summary>
+        /// Deletes the specified access token.
+        /// </summary>
+        /// <param name="tokenId">The ID of the access token.</param>
+        public void DeleteAccessToken(string tokenId)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/accesstokens/" + tokenId;
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "DELETE", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Lists all access tokens owned by the user using the options provided.
+        /// </summary>
+        /// <param name="options">Options for listing the objects. After calling 
+        /// ListAccessTokens, be sure to check the value of the token property to see 
+        /// if there are additional results.</param>
+        /// <returns>The list of access tokens that the user has created</returns>
+        public List<AccessTokenType> ListAccessTokens(ListOptions options)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/accesstokens";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                if (options != null)
+                {
+                    if (options.Limit > 0)
+                    {
+                        headers.Add("x-emc-limit", "" + options.Limit);
+                    }
+                    if (options.Token != null)
+                    {
+                        headers.Add("x-emc-token", options.Token);
+                    }
+
+                }
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // Check for token
+                if (options != null)
+                {
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        options.Token = resp.Headers["x-emc-token"];
+                    }
+                    else
+                    {
+                        // No more results
+                        options.Token = null;
+                    }
+                }
+                else
+                {
+                    if (resp.Headers["x-emc-token"] != null)
+                    {
+                        // There are more results available, but no ListOptions
+                        // object to receive the token. Issue a warning.
+                        log.TraceEvent(TraceEventType.Warning, 1, "Results truncated.  Use ListOptions paramter to retrieve the token value for more results");
+                    }
+                }
+
+                XmlSerializer serializer = new XmlSerializer(typeof(ListAccessTokenResultType));
+                ListAccessTokenResultType result = (ListAccessTokenResultType)serializer.Deserialize(resp.GetResponseStream());
+                resp.Close();
+
+                return new List<AccessTokenType>(result.AccessTokensList);
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
         }
 
         #endregion
@@ -3581,9 +4308,13 @@ namespace EsuApiLib.Rest {
         private string getResourcePath(string ctx, Identifier id) {
 		    if( id is ObjectId ) {
 			    return ctx + "/objects/" + id;
-		    } else {
+		    } else if ( id is ObjectPath ) {
 			    return ctx + "/namespace" + id;
-		    }
+            } else if (id is ObjectKey) {
+                return ctx + "/namespace/" + (id as ObjectKey).key;
+            } else {
+                throw new Exception("Unknown identifier: " + id.GetType().Name);
+            }
         }
 
 
