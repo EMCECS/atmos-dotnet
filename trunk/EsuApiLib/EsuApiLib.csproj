@@ -68,6 +68,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="access-token.cs">
+      <DependentUpon>access-token.xsd</DependentUpon>
+    </Compile>
     <Compile Include="Acl.cs" />
     <Compile Include="Checksum.cs" />
     <Compile Include="DirectoryEntry.cs" />
@@ -87,6 +90,7 @@
     <Compile Include="ObjectExpiration.cs" />
     <Compile Include="ObjectId.cs" />
     <Compile Include="ObjectInfo.cs" />
+    <Compile Include="ObjectKey.cs" />
     <Compile Include="ObjectMetadata.cs" />
     <Compile Include="ObjectPath.cs" />
     <Compile Include="ObjectReplica.cs" />
@@ -102,6 +106,9 @@
     <Compile Include="UploadHelper.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="access-token.xsd">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="docgen.shfb" />
   </ItemGroup>
   <ItemGroup>

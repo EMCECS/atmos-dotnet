@@ -23,35 +23,45 @@
 //      ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
 //      POSSIBILITY OF SUCH DAMAGE.
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using NUnit.Framework;
 
 namespace EsuApiLib.Rest {
     /// <summary>
     /// Tests the REST version of the ESU api.
     /// </summary>
-    [TestFixture]
+    [TestClass()]
     public class EsuRestApiTest : EsuApiTest {
         /// <summary>
         /// UID to run tests with.  Change this value to your UID.
         /// </summary>
-        private String uid = "15f02fc57acd4e17bb79c3e83822e2c9/A50231654471c3a4fa57";
+        private String uid = "<Full Token ID>";
         /// <summary>
         /// Shared secret for UID.  Change this value to your UID's shared secret
         /// </summary>
-        private String secret = "MrJjsV+LdcpT+C6AWGe0Infntiw=";
+        private String secret = "<Secret Key>";
         /// <summary>
         /// Hostname or IP of ESU server.  Change this value to your server's
         /// hostname or ip address.
         /// </summary>
-        private String host = "api.atmosonline.com";
+        private String host = "<Atmos IP>";
 
         /// <summary>
         /// Port of ESU server (usually 80 or 443)
         /// </summary>
         private int port = 80;
+
+        [TestInitialize()]
+        public void Setup()
+        {
+            base.SetUp();
+            esu = new EsuRestApi(host, port, uid, secret);
+
+            // Disable "Expect: 100-continue" behavior
+            ((EsuRestApi)esu).Set100Continue(false);
+        }
 
         /// <summary>
         /// Creates a new test object.
@@ -60,22 +70,10 @@ namespace EsuApiLib.Rest {
         }
 
         /// <summary>
-        /// Sets up environment before testcase is run.
-        /// </summary>
-        [SetUp]
-        public override void SetUp() {
-            base.SetUp();
-            esu = new EsuRestApi( host, port, uid, secret );
-
-            // Disable "Expect: 100-continue" behavior
-            ((EsuRestApi)esu).Set100Continue( false );
-        }
-
-        /// <summary>
         /// Test handling signature failures.  Should throw an exception with
         /// error code 1032.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testSignatureFailure() {
             // break the secret key
             string badSecret = this.secret.ToUpper();
@@ -95,7 +93,7 @@ namespace EsuApiLib.Rest {
         /// <summary>
         /// Test general HTTP errors by generating a 404.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testFourOhFour() {
             // break the context root
             ((EsuRestApi)this.esu).Context = "/restttt";
@@ -110,7 +108,7 @@ namespace EsuApiLib.Rest {
 
         }
 
-        [Test]
+        [TestMethod()]
         public void testServerOffset()
         {
             // Check the server offset
@@ -130,7 +128,7 @@ namespace EsuApiLib.Rest {
         /// NOTE: This doesn't actually test if the headers are present in the request.
         ///       Use tcpmon or wireshark to verify.
         /// </summary>
-        [Test]
+        [TestMethod()]
         public void testCustomHeaders()
         {
             Dictionary<string, string> customHeaders = new Dictionary<string, string>();

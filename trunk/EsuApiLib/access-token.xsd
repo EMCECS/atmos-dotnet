@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+  <xsd:element name="policy" type="policyType"></xsd:element>
+  <xsd:element name="list-access-tokens-result" type="listAccessTokenResultType"></xsd:element>
+  <xsd:element name="access-token" type="accessTokenType"></xsd:element>
+
+  <xsd:complexType name="policyType">
+
+    <xsd:sequence>
+
+      <xsd:element name="expiration" type="xsd:dateTime" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="max-uploads" type="xsd:int" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="max-downloads" type="xsd:int" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="source" type="sourceType" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="content-length-range" minOccurs="0" maxOccurs="1" type="contentLengthRangeType">
+
+      </xsd:element>
+
+      <xsd:element name="form-field" type="formFieldType" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="sourceType">
+
+    <xsd:sequence>
+
+      <xsd:element name="allow" type="xsd:string" maxOccurs="unbounded" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="disallow" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="formFieldType">
+
+    <xsd:sequence>
+
+      <xsd:element name="matches" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+      <xsd:element name="eq" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+      <xsd:element name="starts-with" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+      <xsd:element name="ends-with" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+      <xsd:element name="contains" type="xsd:string" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+    </xsd:sequence>
+
+    <xsd:attribute name="name" type="xsd:string" use="required"></xsd:attribute>
+
+    <xsd:attribute name="optional" type="xsd:boolean" use="optional"></xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType name="contentLengthRangeType">
+
+    <xsd:attribute use="required" name="from" type="xsd:int"></xsd:attribute>
+
+    <xsd:attribute use="required" name="to" type="xsd:int"></xsd:attribute>
+  </xsd:complexType>
+
+  <xsd:complexType name="listAccessTokenResultType">
+    <xsd:sequence>
+      <xsd:element name="access-tokens-list" type="accessTokensListType" minOccurs="1" maxOccurs="1" />
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="accessTokensListType">
+    <xsd:sequence>
+      <xsd:element name="access-token" type="accessTokenType" minOccurs="0" maxOccurs="unbounded" />
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="accessTokenType">
+
+    <xsd:sequence>
+
+      <xsd:element name="access-token-id" type="xsd:string" minOccurs="1" maxOccurs="1" />
+
+      <xsd:element name="expiration" type="xsd:dateTime" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="max-uploads" type="xsd:int" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="max-downloads" type="xsd:int" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="source" type="sourceType" maxOccurs="1" minOccurs="0">
+
+      </xsd:element>
+
+      <xsd:element name="content-length-range" maxOccurs="1" minOccurs="1" type="contentLengthRangeType">
+
+      </xsd:element>
+
+      <xsd:element name="form-field" type="formFieldType" maxOccurs="unbounded" minOccurs="0"></xsd:element>
+
+      <xsd:element name="uid" minOccurs="0" maxOccurs="1" type="xsd:string">
+
+      </xsd:element>
+
+      <xsd:element name="object-id" minOccurs="0" maxOccurs="1" type="xsd:string">
+
+      </xsd:element>
+
+      <xsd:element name="path" minOccurs="0" maxOccurs="1" type="xsd:string">
+
+      </xsd:element>
+
+    </xsd:sequence>
+  </xsd:complexType>
+
+</xsd:schema>
