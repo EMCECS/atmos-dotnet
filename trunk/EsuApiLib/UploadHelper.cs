@@ -520,13 +520,32 @@ namespace EsuApiLib {
         /// Reads a chunk of data from the stream.
         /// </summary>
         /// <returns>true if an EOF was encountered.</returns>
-        private bool ReadChunk() {
-            int c = stream.Read( buffer.Array, 0, buffer.Count );
-            buffer = new ArraySegment<byte>( buffer.Array, 0, c );
-            if ( c == 0 ) {
-                return true;
+        private bool ReadChunk()
+        {
+            int totalBytesRead = 0;
+            bool eof = false;
+
+            // Always attempt to fill the entire buffer array.  We'll resize the ArraySegment
+            // if it's not full.
+            while (totalBytesRead < buffer.Array.Length)
+            {
+                int c = stream.Read(buffer.Array, totalBytesRead, buffer.Array.Length - totalBytesRead);
+
+                if (c == 0)
+                {
+                    // Only report EOF if we didn't read ANY bytes.
+                    if (totalBytesRead == 0)
+                    {
+                        eof = true;
+                    }
+                    break;
+                }
+
+                totalBytesRead += c;
             }
-            return false;
+
+            buffer = new ArraySegment<byte>(buffer.Array, 0, totalBytesRead);
+            return eof;
         }
 
         #endregion
