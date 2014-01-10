@@ -87,6 +87,7 @@
     <Compile Include="MetadataList.cs" />
     <Compile Include="MetadataTag.cs" />
     <Compile Include="MetadataTags.cs" />
+    <Compile Include="Multipart\Multipart.cs" />
     <Compile Include="ObjectExpiration.cs" />
     <Compile Include="ObjectId.cs" />
     <Compile Include="ObjectInfo.cs" />

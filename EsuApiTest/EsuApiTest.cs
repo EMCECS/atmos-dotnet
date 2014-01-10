@@ -1,4 +1,4 @@
-﻿// Copyright © 2008, EMC Corporation.
+﻿// Copyright © 2014, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -31,6 +31,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using EsuApiLib.Multipart;
 
 namespace EsuApiLib {
     /// <summary>
@@ -39,6 +40,9 @@ namespace EsuApiLib {
     /// </summary>
     [TestClass()]
     public abstract class EsuApiTest {
+        private static readonly string TESTDIR = "/test_" + typeof(EsuApiTest).Name + "/";
+
+
         /// <summary>
         /// The EsuApi object used in the tests.
         /// </summary>
@@ -60,6 +64,30 @@ namespace EsuApiLib {
                     Console.WriteLine( "Failed to delete " + cleanItem + ": " + e.Message );
                 }
             }
+            try
+            { // if the test directory exists, recursively delete it
+                this.esu.GetSystemMetadata(new ObjectPath(TESTDIR), null);
+                deleteRecursively(new ObjectPath(TESTDIR));
+            }
+            catch (EsuException e)
+            {
+                if (e.Code != 1003)
+                {
+                    Debug.WriteLine("Could not delete test dir: " + e.Message);
+                }
+            }
+        }
+
+        protected void deleteRecursively( ObjectPath path ) {
+            if ( path.IsDirectory() ) {
+                ListOptions options = new ListOptions();
+                do {
+                    foreach ( DirectoryEntry entry in this.esu.ListDirectory( path, options ) ) {
+                        deleteRecursively( entry.Path );
+                    }
+                } while ( options.Token != null );
+            }
+            this.esu.DeleteObject( path );
         }
 
         /// <summary>
@@ -1341,7 +1369,7 @@ namespace EsuApiLib {
             // Check the ACL
             // not checking this by path because an extra groupid is added 
             // during the create calls by path.
-            //Assert.assertEquals( "ACLs don't match", acl, om.getAcl() );
+            //Assert.AreEqual( acl, om.getAcl(), "ACLs don't match" );
 
 	    }
     	
@@ -1583,6 +1611,16 @@ namespace EsuApiLib {
 
             Assert.IsNotNull(si.AtmosVersion);
             Debug.WriteLine("Atmos " + si.AtmosVersion);
+        }
+
+        [TestMethod()]
+        public void testGetServiceInformationFeatures() {
+            ServiceInformation info = this.esu.GetServiceInformation();
+            string featureString = "";
+            foreach (string feature in info.Features) { featureString += feature + ", "; }
+            Debug.WriteLine( "Supported features: " + featureString.Substring(0, featureString.Length - 2) );
+
+            Assert.IsTrue(info.Features.Count() > 0, "Expected at least one feature");
         }
 
         [TestMethod()]
@@ -1863,6 +1901,297 @@ namespace EsuApiLib {
             Assert.AreEqual(content, Encoding.UTF8.GetString(esu.ReadObject(op, null, null)), "content from namespace not equal");
 
             esu.DeleteAccessToken(tokenUri);
+        }
+
+        [TestMethod()]
+        public void testUnicodeMetadata() {
+            MetadataList mlist = new MetadataList();
+            Metadata nbspValue = new Metadata( "nbspvalue", "Nobreak\u00A0Value", false );
+            Metadata nbspName = new Metadata( "Nobreak\u00A0Name", "regular text here", false );
+            Metadata cryllic = new Metadata( "cryllic", "спасибо", false );
+            Debug.WriteLine( "NBSP Value: " + nbspValue );
+            Debug.WriteLine( "NBSP Name: " + nbspName );
+
+            mlist.AddMetadata( nbspValue );
+            mlist.AddMetadata( nbspName );
+            mlist.AddMetadata( cryllic );
+
+            ObjectId id = this.esu.CreateObject( null, mlist, null, null );
+            Assert.IsNotNull( id, "null ID returned" );
+            cleanup.Add( id );
+
+            // Read and validate the metadata
+            MetadataList meta = this.esu.GetUserMetadata( id, null );
+            Debug.WriteLine( "Read Back:" );
+            Debug.WriteLine( "NBSP Value: " + meta.GetMetadata( "nbspvalue" ) );
+            Debug.WriteLine( "NBSP Name: " + meta.GetMetadata( "Nobreak\u00A0Name" ) );
+            Assert.AreEqual( "Nobreak\u00A0Value", meta.GetMetadata( "nbspvalue" ).Value, "value of 'nobreakvalue' wrong" );
+            Assert.AreEqual( "спасибо", meta.GetMetadata( "cryllic" ).Value, "Value of cryllic wrong" );
+        }
+
+        [TestMethod()]
+        public void testUnicodePath() {
+            String dirName = rand8char();
+            ObjectPath path = new ObjectPath( "/" + dirName + "/бöｼ.txt" );
+            ObjectId id = this.esu.CreateObjectOnPath( path, null, null, null, null );
+            Assert.IsNotNull( id, "null ID returned" );
+            cleanup.Add( id );
+
+            ObjectPath parent = new ObjectPath( "/" + dirName + "/" );
+            List<DirectoryEntry> ents = this.esu.ListDirectory( parent, null );
+            bool found = false;
+            foreach ( DirectoryEntry ent in ents ) {
+                if ( ent.Path.Equals( path ) ) {
+                    found = true;
+                }
+            }
+            Assert.IsTrue( found, "Did not find unicode file in dir" );
+
+            // Check read
+            this.esu.ReadObject( path, null, null );
+
+        }
+
+        [TestMethod()]
+        public void testUtf8Metadata() {
+            String oneByteCharacters = "Hello! ";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String utf8String = oneByteCharacters + twoByteCharacters + fourByteCharacters;
+
+            MetadataList metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( "utf8Key", utf8String, false ) );
+            metaList.AddMetadata( new Metadata( utf8String, "utf8Value", false ) );
+
+            ObjectId id = this.esu.CreateObject( null, metaList, null, null );
+            cleanup.Add( id );
+
+            // list all tags and make sure the UTF8 tag is in the list
+            MetadataTags tags = this.esu.ListUserMetadataTags( id );
+            Assert.IsTrue( tags.Contains( utf8String ), "UTF8 key not found in tag list" );
+
+            // get the user metadata and make sure all UTF8 characters are accurate
+            metaList = this.esu.GetUserMetadata( id, null );
+            Metadata meta = metaList.GetMetadata( utf8String );
+            Assert.AreEqual( meta.Name, utf8String, "UTF8 key does not match" );
+            Assert.AreEqual( meta.Value, "utf8Value", "UTF8 key value does not match" );
+            Assert.AreEqual( metaList.GetMetadata( "utf8Key" ).Value, utf8String, "UTF8 value does not match" );
+
+            // test set metadata with UTF8
+            metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( "newKey", utf8String + "2", false ) );
+            metaList.AddMetadata( new Metadata( utf8String + "2", "newValue", false ) );
+            this.esu.SetUserMetadata( id, metaList );
+
+            // verify set metadata call (also testing getAllMetadata)
+            ObjectMetadata objMeta = this.esu.GetAllMetadata( id );
+            metaList = objMeta.Metadata;
+            meta = metaList.GetMetadata( utf8String + "2" );
+            Assert.AreEqual( meta.Name, utf8String + "2", "UTF8 key does not match" );
+            Assert.AreEqual( meta.Value, "newValue", "UTF8 key value does not match" );
+            Assert.AreEqual( metaList.GetMetadata( "newKey" ).Value, utf8String + "2", "UTF8 value does not match" );
+        }
+
+        [TestMethod()]
+        public void testUtf8MetadataFilter() {
+            String oneByteCharacters = "Hello! ";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String utf8String = oneByteCharacters + twoByteCharacters + fourByteCharacters;
+
+            MetadataList metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( "utf8Key", utf8String, false ) );
+            metaList.AddMetadata( new Metadata( utf8String, "utf8Value", false ) );
+
+            ObjectId id = this.esu.CreateObject( null, metaList, null, null );
+            cleanup.Add( id );
+
+            // apply a filter that includes the UTF8 tag
+            MetadataTags tags = new MetadataTags();
+            tags.AddTag( new MetadataTag( utf8String, false ) );
+            metaList = this.esu.GetUserMetadata( id, tags );
+            Assert.AreEqual( metaList.Count(), 1, "UTF8 filter was not honored" );
+            Assert.IsNotNull( metaList.GetMetadata( utf8String ), "UTF8 key was not found in filtered results" );
+        }
+
+        [TestMethod()]
+        public void testUtf8DeleteMetadata() {
+            String oneByteCharacters = "Hello! ";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String utf8String = oneByteCharacters + twoByteCharacters + fourByteCharacters;
+
+            MetadataList metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( "utf8Key", utf8String, false ) );
+            metaList.AddMetadata( new Metadata( utf8String, "utf8Value", false ) );
+
+            ObjectId id = this.esu.CreateObject( null, metaList, null, null );
+            cleanup.Add( id );
+
+            // delete the UTF8 tag
+            MetadataTags tags = new MetadataTags();
+            tags.AddTag( new MetadataTag( utf8String, false ) );
+            this.esu.DeleteUserMetadata( id, tags );
+
+            // verify delete was successful
+            tags = this.esu.ListUserMetadataTags( id );
+            Assert.IsFalse( tags.Contains( utf8String ), "UTF8 key was not deleted" );
+        }
+
+        [TestMethod()]
+        public void testUtf8ListableMetadata() {
+            String oneByteCharacters = "Hello! ";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String utf8String = oneByteCharacters + twoByteCharacters + fourByteCharacters;
+
+            MetadataList metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( utf8String, "utf8Value", true ) );
+
+            ObjectId id = this.esu.CreateObject( null, metaList, null, null );
+            cleanup.Add( id );
+
+            metaList = this.esu.GetUserMetadata( id, null );
+            Metadata meta = metaList.GetMetadata( utf8String );
+            Assert.AreEqual( meta.Name, utf8String, "UTF8 key does not match" );
+            Assert.AreEqual( meta.Value, "utf8Value", "UTF8 key value does not match" );
+            Assert.IsTrue( meta.Listable, "UTF8 metadata is not listable" );
+
+            // verify we can list the tag and see our object
+            bool found = false;
+            foreach ( ObjectResult result in this.esu.ListObjects( utf8String, null ) ) {
+                if ( result.Id.Equals( id ) ) {
+                    found = true;
+                    break;
+                }
+            }
+            Assert.IsTrue( found, "UTF8 tag listing did not contain the correct object ID" );
+
+            // verify we can list child tags of the UTF8 tag
+            MetadataTags tags = this.esu.GetListableTags( new MetadataTag( utf8String, true ) );
+            Assert.IsNotNull( tags, "UTF8 child tag listing was null" );
+        }
+
+        [TestMethod()]
+        public void testUtf8ListableTagWithComma() {
+            String stringWithComma = "Hello, you!";
+
+            MetadataList metaList = new MetadataList();
+            metaList.AddMetadata( new Metadata( stringWithComma, "value", true ) );
+
+            ObjectId id = this.esu.CreateObject( null, metaList, null, null );
+            cleanup.Add( id );
+
+            metaList = this.esu.GetUserMetadata( id, null );
+            Metadata meta = metaList.GetMetadata( stringWithComma );
+            Assert.AreEqual( meta.Name, stringWithComma, "key does not match" );
+            Assert.IsTrue( meta.Listable, "metadata is not listable" );
+
+            bool found = false;
+            foreach ( ObjectResult result in this.esu.ListObjects( stringWithComma, null ) ) {
+                if ( result.Id.Equals( id ) ) {
+                    found = true;
+                    break;
+                }
+            }
+            Assert.IsTrue( found, "listing did not contain the correct object ID" );
+        }
+
+        [TestMethod()]
+        public void testUtf8Path() {
+            String oneByteCharacters = "Hello! ,";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String crazyName = oneByteCharacters + twoByteCharacters + fourByteCharacters;
+            byte[] content = Encoding.UTF8.GetBytes( "Crazy name creation test." );
+            ObjectPath path = new ObjectPath( TESTDIR + crazyName );
+
+            // create crazy-name object
+            this.esu.CreateObjectOnPath( path, null, null, content, "text/plain" );
+
+            cleanup.Add(path);
+
+            // verify name in directory list
+            bool found = false;
+            foreach ( DirectoryEntry entry in this.esu.ListDirectory( new ObjectPath( TESTDIR ), null ) ) {
+                if ( entry.Path.ToString().Equals( path.ToString() ) ) {
+                    found = true;
+                    break;
+                }
+            }
+            Assert.IsTrue( found, "crazyName not found in directory listing" );
+
+            // verify content
+            Assert.IsTrue( content.SequenceEqual( this.esu.ReadObject( path, null, null ) ), "content does not match" );
+        }
+
+        [TestMethod()]
+        public void testUtf8Content() {
+            String oneByteCharacters = "Hello! ,";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            byte[] content = Encoding.UTF8.GetBytes(oneByteCharacters + twoByteCharacters + fourByteCharacters);
+            ObjectPath path = new ObjectPath( TESTDIR + "utf8Content.txt" );
+
+            // create object with multi-byte UTF-8 content
+            this.esu.CreateObjectOnPath( path, null, null, content, "text/plain" );
+
+            // verify content
+            Assert.IsTrue( content.SequenceEqual( this.esu.ReadObject( path, null, null ) ), "content does not match" );
+        }
+
+        [TestMethod()]
+        public void testUtf8Rename() {
+            String oneByteCharacters = "Hello! ,";
+            String twoByteCharacters = "\u0410\u0411\u0412\u0413"; // Cyrillic letters
+            String fourByteCharacters = "\ud841\udf0e\ud841\udf31\ud841\udf79\ud843\udc53"; // Chinese symbols
+            String normalName = TESTDIR + rand8char() + ".tmp";
+            String crazyName = TESTDIR + oneByteCharacters + twoByteCharacters + fourByteCharacters;
+            byte[] content = Encoding.UTF8.GetBytes( "This is a really crazy name." );
+
+            // normal name
+            this.esu.CreateObjectOnPath( new ObjectPath( normalName ), null, null, content, "text/plain" );
+
+            // crazy multi-byte character name
+            this.esu.Rename( new ObjectPath( normalName ), new ObjectPath( crazyName ), true );
+
+            // Wait for overwrite to complete
+            System.Threading.Thread.Sleep( 5000 );
+
+            // verify name in directory list
+            bool found = false;
+            foreach ( DirectoryEntry entry in this.esu.ListDirectory( new ObjectPath( TESTDIR ), null ) ) {
+                if ( entry.Path.ToString().Equals( crazyName ) ) {
+                    found = true;
+                    break;
+                }
+            }
+            Assert.IsTrue( found, "crazyName not found in directory listing" );
+
+            // Read back the content
+            Assert.IsTrue( content.SequenceEqual( this.esu.ReadObject( new ObjectPath( crazyName ), null, null ) ), "object content wrong" );
+        }
+
+        /// <summary>
+        /// Tests fetching data with multiple ranges.
+        /// </summary>
+        [TestMethod()]
+        public void testMultipleRanges() {
+            string input = "Four score and seven years ago";
+            ObjectId id = this.esu.CreateObject(null, null, Encoding.UTF8.GetBytes(input), "text/plain" );
+            cleanup.Add( id );
+            Assert.IsNotNull( id, "Object null" );
+
+            Extent[] extents = new Extent[5];
+            extents[0] = new Extent( 27, 2 ); //ag
+            extents[1] = new Extent( 9, 1 ); // e
+            extents[2] = new Extent( 5, 1 ); // s
+            extents[3] = new Extent( 4, 1 ); // ' '
+            extents[4] = new Extent( 27, 3 ); // ago
+
+            MultipartEntity entity = this.esu.ReadObjectExtents( id, extents );
+            string content = Encoding.UTF8.GetString( entity.AggregateBytes() );
+            Assert.AreEqual("ages ago", content, "Content incorrect");
         }
 
         private void AssertTokenPolicy(AccessTokenType token, PolicyType policy)

@@ -1,4 +1,4 @@
-// Copyright © 2008, EMC Corporation.
+// Copyright Â© 2014, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using EsuApiLib.Multipart;
 
 namespace EsuApiLib
 {
@@ -341,6 +342,15 @@ namespace EsuApiLib
         /// does not return a checksum from the server, the checksum operation will be skipped.</param>
         /// <returns>A byte array containing the requested content.</returns>
         byte[] ReadObject(Identifier id, Extent extent, byte[] buffer, Checksum checksum);
+
+        /// <summary>
+        /// Reads content from multiple extents within an object using a single call.
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extents">the extents of the object data to read.</param>
+        /// <returns>A MultipartEntity, which is also a List&lt;MultipartPart&gt;</MultipartPart>,
+        /// but provides a method to aggregate data from the parts into a single byte array.</returns>
+        MultipartEntity ReadObjectExtents(Identifier id, params Extent[] extents);
 
         /// <summary>
         /// Deletes an object from the cloud.
