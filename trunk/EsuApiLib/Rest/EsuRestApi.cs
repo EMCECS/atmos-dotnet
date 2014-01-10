@@ -1,4 +1,4 @@
-// Copyright © 2008, EMC Corporation.
+// Copyright Â© 2014, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -25,6 +25,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Text;
 using System.Net;
 using System.IO;
@@ -35,6 +36,7 @@ using System.Reflection;
 using System.Xml;
 using System.Linq;
 using System.Xml.Serialization;
+using EsuApiLib.Multipart;
 
 namespace EsuApiLib.Rest {
     /// <summary>
@@ -45,7 +47,7 @@ namespace EsuApiLib.Rest {
     /// safely in a multithreaded environment. 
     /// </summary>
     public class EsuRestApi : EsuApi {
-        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44})" );
+        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44,})" );
         private static TraceSource log = new TraceSource("EsuRestApi");
         private static Encoding headerEncoder = Encoding.GetEncoding("iso-8859-1");
 
@@ -56,6 +58,7 @@ namespace EsuApiLib.Rest {
         private int readWriteTimeout = -1;
         private IWebProxy proxy;
         private int serverOffset = 0;
+        private bool utf8Enabled = true;
         private Dictionary<string, string> customHeaders;
 
         /// <summary>
@@ -155,6 +158,15 @@ namespace EsuApiLib.Rest {
         {
             get { return serverOffset; }
             set { serverOffset = value; }
+        }
+
+        /// <summary>
+        /// Whether to enable UTF-8 character encoding in metadata (requires Atmos version 1.4.2+)
+        /// </summary>
+        public bool Utf8Enabled
+        {
+            get { return utf8Enabled; }
+            set { utf8Enabled = value; }
         }
 
         /// <summary>
@@ -1450,6 +1462,7 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
                 if (id is ObjectKey) {
                     headers.Add("x-emc-pool", (id as ObjectKey).pool);
                 }
@@ -1768,6 +1781,95 @@ namespace EsuApiLib.Rest {
             finally
             {
                 if( resp != null ) {
+                    resp.Close();
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Reads content from multiple extents within an object using a single call.
+        /// </summary>
+        /// <param name="id">the identifier of the object whose content to read.</param>
+        /// <param name="extents">the extents of the object data to read.</param>
+        /// <returns>A MultipartEntity, which is also a List&lt;MultipartPart&gt;</MultipartPart>,
+        /// but provides a method to aggregate data from the parts into a single byte array.</returns>
+        public MultipartEntity ReadObjectExtents(Identifier id, params Extent[] extents)
+        {
+            if (extents == null || !extents.Any()) throw new EsuException("You must specify extents for this call");
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = getResourcePath(context, id);
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+                if (id is ObjectKey)
+                {
+                    headers.Add("x-emc-pool", (id as ObjectKey).pool);
+                }
+
+                //Add extents
+                string range = "Bytes=";
+                foreach (Extent extent in extents)
+                {
+                    range += extent.Offset + "-" + (extent.Offset + extent.Size - 1) + ",";
+                }
+                headers.Add("Range", range.Substring(0, range.Length - 1));
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "GET", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+
+                // parse the boundary from the content-type parameter. note that this will throw an exception if we don't get multipart
+                // content in the response
+                string boundary = new Regex(" boundary=\"?([^\\s]*)\"?;?").Match(resp.ContentType).Groups[1].Value;
+                MultipartEntity entity = MultipartEntity.FromStream(resp.GetResponseStream(), boundary);
+
+                resp.Close();
+                return entity;
+            }
+            catch (KeyNotFoundException e)
+            {
+                throw new EsuException("Expected multipart response, but instead got " + resp.ContentType, e);
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
                     resp.Close();
                 }
             }
@@ -2372,11 +2474,12 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
 
                 // Add tag
                 if (tag != null)
                 {
-                    headers.Add("x-emc-tags", tag);
+                    headers.Add("x-emc-tags", utf8Enabled ? utf8Encode(tag) : tag);
                 }
                 else
                 {
@@ -2520,79 +2623,9 @@ namespace EsuApiLib.Rest {
         /// <exception cref="T:EsuApiLib.EsuException">if no objects are found (code 1003)</exception>
         public List<ObjectResult> ListObjectsWithMetadata(string tag)
         {
-            HttpWebResponse resp = null;
-            try
-            {
-                string resource = context + "/objects";
-                Uri u = buildUrl(resource);
-                HttpWebRequest con = createWebRequest(u);
-
-                // Build headers
-                Dictionary<string, string> headers = new Dictionary<string, string>();
-
-                headers.Add("x-emc-uid", uid);
-                headers.Add("x-emc-include-meta", "1");
-
-                // Add tag
-                if (tag != null)
-                {
-                    headers.Add("x-emc-tags", tag);
-                }
-                else
-                {
-                    throw new EsuException("tag may not be null");
-                }
-
-                // Add date
-                addDateHeader(headers);
-
-                // Sign request
-                signRequest(con, "GET", resource, headers);
-
-                // Check response
-                resp = (HttpWebResponse)con.GetResponse();
-                int statInt = (int)resp.StatusCode;
-                if (statInt > 299)
-                {
-                    handleError(resp);
-                }
-
-                // Get object id list from response
-                byte[] response = readResponse(resp, null, null);
-
-                string responseStr = Encoding.UTF8.GetString(response);
-                log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
-
-                return parseObjectListWithMetadata(responseStr);
-
-            }
-            catch (UriFormatException e)
-            {
-                throw new EsuException("Invalid URL", e);
-            }
-            catch (IOException e)
-            {
-                throw new EsuException("Error connecting to server", e);
-            }
-            catch (WebException e)
-            {
-                if (e.Response != null)
-                {
-                    handleError((HttpWebResponse)e.Response);
-                }
-                else
-                {
-                    throw new EsuException("Error executing request: " + e.Message, e);
-                }
-            }
-            finally
-            {
-                if (resp != null)
-                {
-                    resp.Close();
-                }
-            }
-            return null;
+            ListOptions options = new ListOptions();
+            options.IncludeMetadata = true;
+            return ListObjects(tag, options);
         }
 
         /// <summary>
@@ -2620,10 +2653,11 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if ( utf8Enabled ) headers.Add( "x-emc-utf8", "true" );
 
                 // Add tag
                 if( tag != null ) {
-                    headers.Add( "x-emc-tags", tag );
+                    headers.Add( "x-emc-tags", utf8Enabled ? utf8Encode(tag) : tag );
                 }
 
                 // Add date
@@ -2685,6 +2719,7 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add( "x-emc-uid", uid );
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
                 if (id is ObjectKey) {
                     headers.Add("x-emc-pool", (id as ObjectKey).pool);
                 }
@@ -2837,6 +2872,7 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
 
                 if (options != null)
                 {
@@ -2949,6 +2985,7 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
                 if (id is ObjectKey) {
                     headers.Add("x-emc-pool", (id as ObjectKey).pool);
                 }
@@ -3097,13 +3134,14 @@ namespace EsuApiLib.Rest {
                 Dictionary<string, string> headers = new Dictionary<string, string>();
 
                 headers.Add("x-emc-uid", uid);
+                if (utf8Enabled) headers.Add("x-emc-utf8", "true");
             
                 string destPath = destination.ToString();
                 if (destPath.StartsWith("/"))
                 {
                     destPath = destPath.Substring(1);
                 }
-                headers.Add("x-emc-path", destPath);
+                headers.Add("x-emc-path", utf8Enabled ? utf8Encode(destPath) : destPath);
 
                 if (force)
                 {
@@ -3190,7 +3228,7 @@ namespace EsuApiLib.Rest {
 
                 string responseStr = Encoding.UTF8.GetString(response);
                 log.TraceEvent(TraceEventType.Verbose, 0, "Response: " + responseStr);
-                return parseServiceInformation(responseStr);
+                return parseServiceInformation(responseStr, resp.Headers);
 
             }
             catch (UriFormatException e)
@@ -3708,19 +3746,18 @@ namespace EsuApiLib.Rest {
             if( nonListable.Length > 0 ) {
                 headers.Add( "x-emc-meta", nonListable.ToString() );
             }
+            if (utf8Enabled && !headers.ContainsKey("x-emc-utf8")) {
+                headers.Add("x-emc-utf8", "true");
+            }
 
         }
 
         private string formatTag( Metadata meta ) {
-            // strip commas and newlines for now.
-            string value = meta.Value;
-            if (value == null)
-            {
-                value = String.Empty;
-            }
-            string s = value.Replace( ",", "" );
-            s = s.Replace( "\n", "" );
-            return meta.Name + "=" + s;
+            string name = utf8Enabled ? utf8Encode(meta.Name) : meta.Name;
+            string value = meta.Value == null ? String.Empty : meta.Value;
+            if (utf8Enabled) value = utf8Encode(value);
+            else value = value.Replace(",", "").Replace("\n", ""); // strip commas and newlines for now.
+            return name + "=" + value;
         }
 
         private void processAcl( Acl acl, Dictionary<string, string> headers ) {
@@ -3990,12 +4027,24 @@ namespace EsuApiLib.Rest {
                 if( taglist.Length > 0 ) {
                     taglist.Append( "," );
                 }
-                taglist.Append( tag.Name );
+                taglist.Append( utf8Enabled ? utf8Encode(tag.Name) : tag.Name );
             }
 
             if( taglist.Length > 0 ) {
                 headers.Add( "x-emc-tags", taglist.ToString() );
             }
+
+            if ( utf8Enabled && !headers.ContainsKey("x-emc-utf8") ) {
+                headers.Add("x-emc-utf8", "true");
+            }
+        }
+
+        private string utf8Encode( string rawValue ) {
+            return Uri.EscapeDataString( rawValue ).Replace( "+", "%20" );
+        }
+
+        private string utf8Decode(string encodedValue) {
+            return Uri.UnescapeDataString(encodedValue);
         }
 
         private void readMetadata( MetadataList meta, string header, bool listable ) {
@@ -4014,6 +4063,12 @@ namespace EsuApiLib.Rest {
                 }
 
                 name = name.Trim();
+
+                if (utf8Enabled)
+                {
+                    name = utf8Decode(name);
+                    value = utf8Decode(value);
+                }
 
                 Metadata m = new Metadata( name, value, listable );
                 log.TraceEvent(TraceEventType.Verbose, 0,  "Meta: " + m );
@@ -4057,7 +4112,7 @@ namespace EsuApiLib.Rest {
             string[] attrs = header.Split( new string[] { "," }, StringSplitOptions.RemoveEmptyEntries );
             for( int i = 0; i < attrs.Length; i++ ) {
                 string attr = attrs[i].Trim();
-                tags.AddTag( new MetadataTag( attr, listable ) );
+                tags.AddTag( new MetadataTag( utf8Enabled ? utf8Decode(attr) : attr, listable ) );
             }
 
         }
@@ -4280,7 +4335,7 @@ namespace EsuApiLib.Rest {
 
         }
 
-        private ServiceInformation parseServiceInformation(string responseStr)
+        private ServiceInformation parseServiceInformation(string responseStr, NameValueCollection headers)
         {
             try
             {
@@ -4295,6 +4350,18 @@ namespace EsuApiLib.Rest {
                 {
                     si.AtmosVersion = xn.InnerText;
                 }
+
+                foreach(string name in headers.AllKeys) {
+                    if ("x-emc-support-utf8".Equals(name, StringComparison.OrdinalIgnoreCase) && "true".Equals(headers[name]))
+                        si.UnicodeMetadataSupported = true;
+
+                    else if ("x-emc-features".Equals(name, StringComparison.OrdinalIgnoreCase)) {
+                        foreach (String feature in headers[name].Split(',')) {
+                            si.AddFeature(feature);
+                        }
+                    }
+                }
+
                 return si;
             }
             catch (XmlException e)

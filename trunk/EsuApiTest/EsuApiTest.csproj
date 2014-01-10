@@ -54,6 +54,7 @@
   <ItemGroup>
     <Compile Include="EsuApiTest.cs" />
     <Compile Include="EsuRestApiTest.cs" />
+    <Compile Include="MultipartEntityTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

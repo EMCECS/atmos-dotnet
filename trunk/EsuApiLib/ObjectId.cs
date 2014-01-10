@@ -1,4 +1,4 @@
-// Copyright © 2008, EMC Corporation.
+// Copyright Â© 2014, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -37,7 +37,7 @@ namespace EsuApiLib {
         /// <summary>
         /// The regular expression that checks whether identifiers are valid.
         /// </summary>
-        private static readonly Regex ID_FORMAT = new Regex("^[0-9a-f]{44}$");
+        private static readonly Regex ID_FORMAT = new Regex("^[0-9a-f]{44,}$");
 
         private string id;
 
