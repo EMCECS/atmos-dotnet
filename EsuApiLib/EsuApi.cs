@@ -647,5 +647,32 @@ namespace EsuApiLib
         /// if there are additional results.</param>
         /// <returns>The list of access tokens that the user has created</returns>
         List<AccessTokenType> ListAccessTokens( ListOptions options );
+
+        /// <summary>
+        /// Creates a new Atmos subtenant in ECS.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <param name="replicationGroupId">Optional.  The ECS Replication Group ID to use for the subtenant.  If null, the default replication group from the Namespace will be used.</param>
+        /// <returns>The new subtenant ID.</returns>
+        string CreateSubtenant(string replicationGroupId);
+
+        /// <summary>
+        /// Creates a new Atmos subtenant in ECS using the default Replication Group on the Namespace.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <returns>The new subtenant ID.</returns>
+        string CreateSubtenant();
+
+        /// <summary>
+        /// Deletes an Atmos subtenant from ECS.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <param name="subtenantId">The ID of the subtenant to delete</param>
+        void DeleteSubtenant(string subtenantId);
+
+
     }
 }

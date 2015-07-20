@@ -3709,6 +3709,159 @@ namespace EsuApiLib.Rest {
             return null;
         }
 
+        /// <summary>
+        /// Creates a new Atmos subtenant in ECS.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <param name="replicationGroupId">Optional.  The ECS Replication Group ID to use for the subtenant.  If null, the default replication group from the Namespace will be used.</param>
+        /// <returns>The new subtenant ID.</returns>
+        public string CreateSubtenant(string replicationGroupId)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/subtenant";
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                if (replicationGroupId != null)
+                {
+                    headers.Add("x-emc-vpool", replicationGroupId);
+                }
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "PUT", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+                string subId = resp.Headers["subtenantID"];
+
+                resp.Close();
+                resp = null;
+
+
+                return subId;
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+            return null;
+
+        }
+
+        /// <summary>
+        /// Creates a new Atmos subtenant in ECS using the default Replication Group from the Namespace.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <returns>The new subtenant ID.</returns>
+        public string CreateSubtenant()
+        {
+            return CreateSubtenant(null);
+        }
+
+        /// <summary>
+        /// Deletes an Atmos subtenant from ECS.
+        /// <b>Note:</b> this API is only applicable to ECS and not to native Atmos.
+        /// Also, note that when calling this API, the UID set on the EsuRestApi object should be a "bare" UID without a prefixing subtenant ID.
+        /// </summary>
+        /// <param name="subtenantId">The ID of the subtenant to delete</param>
+        public void DeleteSubtenant(string subtenantId)
+        {
+            HttpWebResponse resp = null;
+            try
+            {
+                string resource = context + "/subtenant/" + subtenantId;
+                Uri u = buildUrl(resource);
+                HttpWebRequest con = createWebRequest(u);
+
+                // Build headers
+                Dictionary<string, string> headers = new Dictionary<string, string>();
+
+                headers.Add("x-emc-uid", uid);
+
+                // Add date
+                addDateHeader(headers);
+
+                // Sign request
+                signRequest(con, "DELETE", resource, headers);
+
+                // Check response
+                resp = (HttpWebResponse)con.GetResponse();
+                int statInt = (int)resp.StatusCode;
+                if (statInt > 299)
+                {
+                    handleError(resp);
+                }
+                resp.Close();
+                resp = null;
+            }
+            catch (UriFormatException e)
+            {
+                throw new EsuException("Invalid URL", e);
+            }
+            catch (IOException e)
+            {
+                throw new EsuException("Error connecting to server", e);
+            }
+            catch (WebException e)
+            {
+                if (e.Response != null)
+                {
+                    handleError((HttpWebResponse)e.Response);
+                }
+                else
+                {
+                    throw new EsuException("Error executing request: " + e.Message, e);
+                }
+            }
+            finally
+            {
+                if (resp != null)
+                {
+                    resp.Close();
+                }
+            }
+
+        }
+
         #endregion
 
         #region PrivateMethods
