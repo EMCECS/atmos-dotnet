@@ -2125,7 +2125,7 @@ namespace EsuApiLib.Rest {
             }
             HttpWebResponse resp = null;
             try {
-                string resource = getResourcePath(context, id) + "/metadata/user";
+                string resource = getResourcePath(context, id) + "?metadata/user";
                 Uri u = buildUrl( resource );
                 HttpWebRequest con = createWebRequest(u);
 
