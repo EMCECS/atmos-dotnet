@@ -744,7 +744,7 @@ namespace EsuApiLib {
                 {
                     found = true;
                     //Test metadata value
-                    Assert.AreEqual("foo", or.meta.GetMetadata("listable").Value, "Metadata value wrong");
+                    Assert.AreEqual("foo", or.listableTags.GetMetadata("listable").Value, "Metadata value wrong");
                 }
             }
 

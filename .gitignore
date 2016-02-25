@@ -1,0 +1,6 @@
+*.suo
+EsuApiLib/bin/
+EsuApiLib/obj/
+EsuApiTest/bin/
+EsuApiTest/obj/
+packages/

@@ -41,5 +41,7 @@ namespace EsuApiLib
         /// The Metadata of the object
         /// </summary>
         public MetadataList meta { get; set; }
+
+        public MetadataList listableTags { get; set; }
     }
 }

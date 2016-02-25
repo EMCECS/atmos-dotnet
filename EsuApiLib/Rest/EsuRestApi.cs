@@ -3504,6 +3504,7 @@ namespace EsuApiLib.Rest {
 
                     // Next, get the metadata
                     obj.meta = new MetadataList();
+                    obj.listableTags = new MetadataList();
                     XmlNode sMetaNode = getChildByName("SystemMetadataList", xn.ChildNodes);
                     XmlNode uMetaNode = getChildByName("UserMetadataList", xn.ChildNodes);
 
@@ -3536,7 +3537,14 @@ namespace EsuApiLib.Rest {
                             string mValue = getChildByName("Value", metaNode.ChildNodes).InnerText;
                             string mListable = getChildByName("Listable", metaNode.ChildNodes).InnerText;
 
-                            obj.meta.AddMetadata(new Metadata(mName, mValue, "true".Equals(mListable)));
+                            if ("true".Equals(mListable))
+                            {
+                                obj.listableTags.AddMetadata(new Metadata(mName, mValue, true));
+                            }
+                            else
+                            {
+                                obj.meta.AddMetadata(new Metadata(mName, mValue, false));
+                            }
                         }
                     }
 
