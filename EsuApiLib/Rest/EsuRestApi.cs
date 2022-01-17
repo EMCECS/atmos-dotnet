@@ -46,8 +46,8 @@ namespace EsuApiLib.Rest {
     /// server are atomic and stateless so the object can be used 
     /// safely in a multithreaded environment. 
     /// </summary>
-    public class EsuRestApi : EsuApi {
-        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44,})" );
+    public class EsuRestApi : EsuApi {  
+        private static readonly Regex OBJECTID_EXTRACTOR = new Regex("/[0-9a-zA-Z]+/objects/([0-9a-f-]{44,})");
         private static TraceSource log = new TraceSource("EsuRestApi");
         private static Encoding headerEncoder = Encoding.GetEncoding("iso-8859-1");
 
@@ -3978,6 +3978,19 @@ namespace EsuApiLib.Rest {
                 if( key.IndexOf( "x-emc" ) == 0 ) {
                     keys.Add( key.ToLower() );
                     newheaders.Add( key.ToLower(), normalizeHeaderValue(headers[key]) );
+                }
+            }
+
+            // Include custom headers in the signature header [Added to solve custom headers bug]
+            if (customHeaders != null)
+            {
+                foreach (string key in customHeaders.Keys)
+                {
+                    if (key.IndexOf("x-emc") == 0)
+                    {
+                        keys.Add(key.ToLower());
+                        newheaders.Add(key.ToLower(), normalizeHeaderValue(customHeaders[key]));
+                    }
                 }
             }
 
