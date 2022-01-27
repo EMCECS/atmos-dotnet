@@ -69,6 +69,18 @@ namespace EsuApiLib.Rest {
         public EsuRestApiTest() {
         }
 
+
+        [TestMethod()]
+        public void testECSExpirationPeriod()
+        {
+            Dictionary<string, string> ecsHeaders = new Dictionary<string, string>();
+            ecsHeaders.Add("x-emc-expiration-period", "86400");
+            // Check the server offset
+            ((EsuRestApi)this.esu).CustomHeaders = ecsHeaders;
+            // Try creating an object
+            testCreateEmptyObject();
+        }
+
         /// <summary>
         /// Test handling signature failures.  Should throw an exception with
         /// error code 1032.
