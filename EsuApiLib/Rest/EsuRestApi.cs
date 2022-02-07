@@ -47,7 +47,7 @@ namespace EsuApiLib.Rest {
     /// safely in a multithreaded environment. 
     /// </summary>
     public class EsuRestApi : EsuApi {
-        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44,})" );
+        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f-]{44,})" );
         private static TraceSource log = new TraceSource("EsuRestApi");
         private static Encoding headerEncoder = Encoding.GetEncoding("iso-8859-1");
 
