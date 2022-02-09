@@ -3885,10 +3885,15 @@ namespace EsuApiLib.Rest {
                     }
                     listable.Append( formatTag( meta ) );
                 } else {
-                    if( nonListable.Length > 0 ) {
-                        nonListable.Append( ", " );
+                    if (meta.Name == "x-emc-expiration-period" || meta.Name == "x-emc-retention-period") {
+                        headers.Add(meta.Name, meta.Value);
+                    } else {
+                        if (nonListable.Length > 0)
+                        {
+                            nonListable.Append(", ");
+                        }
+                        nonListable.Append(formatTag(meta));
                     }
-                    nonListable.Append( formatTag( meta ) );
                 }
             }
 
