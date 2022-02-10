@@ -2195,13 +2195,13 @@ namespace EsuApiLib {
         }
 
         /// <summary>
-        /// x-emc-expiration-period only works on ECS Atmos
+        /// Setting expiration-period only works on ECS Atmos
         /// </summary>
         [TestMethod()]
         public void testECSExpirationPeriod()
         {
             MetadataList mlist = new MetadataList();
-            mlist.AddMetadata(new Metadata("x-emc-expiration-period", "5", false));
+            mlist.setExpirationPeriod(5);
             ObjectId id = this.esu.CreateObject(null, mlist, Encoding.UTF8.GetBytes("Test expiration-period"), "text/plain");
             Assert.IsNotNull(id, "null ID returned");
 
@@ -2224,13 +2224,13 @@ namespace EsuApiLib {
         }
 
         /// <summary>
-        /// x-emc-retention-period only works on ECS Atmos
+        /// Setting retention-period only works on ECS Atmos
         /// </summary>
         [TestMethod()]
         public void testECSRetentionPeriod()
         {
             MetadataList mlist = new MetadataList();
-            mlist.AddMetadata(new Metadata("x-emc-retention-period", "5", false));
+            mlist.setRetentionPeriod(5);
             ObjectId id = this.esu.CreateObject(null, mlist, Encoding.UTF8.GetBytes("Test expiration-period"), "text/plain");
             Assert.IsNotNull(id, "null ID returned");
 

@@ -3885,17 +3885,17 @@ namespace EsuApiLib.Rest {
                     }
                     listable.Append( formatTag( meta ) );
                 } else {
-                    if (meta.Name == "x-emc-expiration-period" || meta.Name == "x-emc-retention-period") {
-                        headers.Add(meta.Name, meta.Value);
-                    } else {
-                        if (nonListable.Length > 0)
-                        {
-                            nonListable.Append(", ");
-                        }
-                        nonListable.Append(formatTag(meta));
+                    if( nonListable.Length > 0 ) {
+                        nonListable.Append( ", " );
                     }
+                    nonListable.Append( formatTag( meta ) );
                 }
             }
+            
+            if( metadata.getExpirationPeriod() != null )
+                headers.Add( "x-emc-expiration-period", metadata.getExpirationPeriod().Value.ToString() );
+            if (metadata.getRetentionPeriod() != null)
+                headers.Add( "x-emc-retention-period", metadata.getRetentionPeriod().Value.ToString() );
 
             // Only set the headers if there's data
             if( listable.Length > 0 ) {
