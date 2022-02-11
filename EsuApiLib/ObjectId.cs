@@ -37,7 +37,7 @@ namespace EsuApiLib {
         /// <summary>
         /// The regular expression that checks whether identifiers are valid.
         /// </summary>
-        private static readonly Regex ID_FORMAT = new Regex("^[0-9a-f]{44,}$");
+        private static readonly Regex ID_FORMAT = new Regex("^[0-9a-f-]{44,}$");
 
         private string id;
 

@@ -1,4 +1,4 @@
-// Copyright � 2008, EMC Corporation.
+﻿// Copyright © 2022, EMC Corporation.
 // Redistribution and use in source and binary forms, with or without modification, 
 // are permitted provided that the following conditions are met:
 //
@@ -33,6 +33,8 @@ namespace EsuApiLib {
     /// </summary>
     public class MetadataList : IEnumerable<Metadata> {
         private Dictionary<string, Metadata> meta;
+        private Nullable<int> expirationPeriod;
+        private Nullable<int> retentionPeriod;
 
         /// <summary>
         /// Creates a new MetadataList
@@ -68,6 +70,38 @@ namespace EsuApiLib {
         /// <returns>The item count</returns>
         public int Count() {
             return meta.Count;
+        }
+
+        /// <summary>
+        /// Set Expiration Period
+        /// </summary>
+        public void setExpirationPeriod(int period)
+        {
+            expirationPeriod = period;
+        }
+
+        /// <summary>
+        /// Get Expiration Period
+        /// </summary>
+        public Nullable<int> getExpirationPeriod()
+        {
+            return expirationPeriod;
+        }
+
+        /// <summary>
+        /// Set Retention Period
+        /// </summary>
+        public void setRetentionPeriod(int period)
+        {
+            retentionPeriod = period;
+        }
+
+        /// <summary>
+        /// Get Retention Period
+        /// </summary>
+        public Nullable<int> getRetentionPeriod()
+        {
+            return retentionPeriod;
         }
 
         /// <summary>

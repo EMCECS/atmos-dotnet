@@ -2194,6 +2194,65 @@ namespace EsuApiLib {
             Assert.AreEqual("ages ago", content, "Content incorrect");
         }
 
+        /// <summary>
+        /// Setting expiration-period only works on ECS Atmos
+        /// </summary>
+        [TestMethod()]
+        public void testECSExpirationPeriod()
+        {
+            MetadataList mlist = new MetadataList();
+            mlist.setExpirationPeriod(5);
+            ObjectId id = this.esu.CreateObject(null, mlist, Encoding.UTF8.GetBytes("Test expiration-period"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+
+            ObjectInfo info = this.esu.GetObjectInfo(id);
+            Assert.IsNotNull(info, "ObjectInfo null");
+            Assert.IsTrue(info.Expiration.Enabled);
+
+            // Wait for exiration
+            System.Threading.Thread.Sleep(5000);
+            try
+            {
+                info = this.esu.GetObjectInfo(id);
+                Assert.Fail("Exception not thrown! Object should not exist after exipiration.");
+            }
+            catch (EsuException e)
+            {
+                // This should happen.
+                Assert.AreEqual(1003, e.Code, "Expected 1003 for not found");
+            }
+        }
+
+        /// <summary>
+        /// Setting retention-period only works on ECS Atmos
+        /// </summary>
+        [TestMethod()]
+        public void testECSRetentionPeriod()
+        {
+            MetadataList mlist = new MetadataList();
+            mlist.setRetentionPeriod(5);
+            ObjectId id = this.esu.CreateObject(null, mlist, Encoding.UTF8.GetBytes("Test expiration-period"), "text/plain");
+            Assert.IsNotNull(id, "null ID returned");
+
+            ObjectInfo info = this.esu.GetObjectInfo(id);
+            Assert.IsNotNull(info, "ObjectInfo null");
+            Assert.IsTrue(info.Retention.Enabled);
+
+            try
+            {
+                this.esu.DeleteObject(id);
+                Assert.Fail("Exception not thrown! Retention Object shouldn't get deleted.");
+            }
+            catch (EsuException e)
+            {
+                Assert.AreEqual(2003, e.Code, "Expected 2003 for deleting/modifying object under retention.");
+            }
+
+            // Wait for retention period to expire.
+            System.Threading.Thread.Sleep(5000);
+            this.esu.DeleteObject(id);
+        }
+
         private void AssertTokenPolicy(AccessTokenType token, PolicyType policy)
         {
             if (token.ContentLengthRange != null)

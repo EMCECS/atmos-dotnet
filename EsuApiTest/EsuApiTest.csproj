@@ -65,7 +65,6 @@
     <None Include="EsuApiTest.exe.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Shadow Include="Test References\EsuApiLib.accessor" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\EsuApiLib\EsuApiLib.csproj">

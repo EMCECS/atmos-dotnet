@@ -47,7 +47,7 @@ namespace EsuApiLib.Rest {
     /// safely in a multithreaded environment. 
     /// </summary>
     public class EsuRestApi : EsuApi {
-        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f]{44,})" );
+        private static readonly Regex OBJECTID_EXTRACTOR = new Regex( "/[0-9a-zA-Z]+/objects/([0-9a-f-]{44,})" );
         private static TraceSource log = new TraceSource("EsuRestApi");
         private static Encoding headerEncoder = Encoding.GetEncoding("iso-8859-1");
 
@@ -3891,6 +3891,11 @@ namespace EsuApiLib.Rest {
                     nonListable.Append( formatTag( meta ) );
                 }
             }
+            
+            if( metadata.getExpirationPeriod() != null )
+                headers.Add( "x-emc-expiration-period", metadata.getExpirationPeriod().Value.ToString() );
+            if (metadata.getRetentionPeriod() != null)
+                headers.Add( "x-emc-retention-period", metadata.getRetentionPeriod().Value.ToString() );
 
             // Only set the headers if there's data
             if( listable.Length > 0 ) {
