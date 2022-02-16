@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("EMC")]
 [assembly: AssemblyProduct("EsuApiLib")]
-[assembly: AssemblyCopyright("Copyright ©  2009-2012 EMC")]
+[assembly: AssemblyCopyright("Copyright ©  2009-2022 DELL EMC")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("2.1.4.32")]
-[assembly: AssemblyFileVersion("2.1.4.32")]
+[assembly: AssemblyVersion("2.1.5.0")]
+[assembly: AssemblyFileVersion("2.1.5.0")]
